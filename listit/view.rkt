@@ -260,7 +260,7 @@
 
 (define (html-about-page)
   (define (github-a name)
-    (def url (~a "https://github.com/soegaard/web-tutorial/listit/" name))
+    (def url (~a "https://github.com/soegaard/web-tutorial/tree/master/listit/" name))
     (@a[href: url]{@tt{@name}}))
   ; links to the source files at Github
   (def model.rkt   (github-a "model.rkt"))
@@ -442,7 +442,7 @@
       @span[class: "titlescore-col col"
          @span[class: "titlescore"
            @a[href: the-url]{ @the-title } 
-           @span[class: "score"]{@the-score "points"}]]})
+           @span[class: "score"]{@the-score points}]]})
                                                        
   @span[class: "entries container-fluid"]{
     @(entries->rows entries)})
