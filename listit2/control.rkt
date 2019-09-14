@@ -23,7 +23,7 @@
          web-server/http/cookie
          web-server/http/id-cookie ; authenticated cookies
          ; "config.rkt"
-         "def.rkt" "parameters.rkt"
+         "def.rkt" "parameters.rkt" "structs.rkt"
          "model.rkt" "view.rkt")
 
 ;;;
@@ -73,15 +73,28 @@
                   ; #:secure? #t  ; instructs client only to send cookie via https
                   ))
 
-(define (get-login-status req)
-  (request-id-cookie req
-                     #:name "login-status"
-                     #:key  cookie-salt
+(define (make-logged-out-cookie)
+  (make-id-cookie "login-status" "out"
+                  #:key cookie-salt
+                  #:http-only? #t))
+
+
+(define (make-username-cookie username)
+  (make-id-cookie "username" username
+                  #:key        cookie-salt
+                  #:http-only? #t))
+
+(define (get-cookie-value req name)
+  (request-id-cookie req #:name name #:key  cookie-salt
                      ; #:timeout ...
                      ; #:shelf-life ...
                      ))
-                     
 
+(define (get-login-status req)
+  (match (get-cookie-value req "login-status")
+    ["in" #t]
+    [_    #f]))
+                     
 ;;;
 ;;; DISPATCH
 ;;;
@@ -89,13 +102,20 @@
 ; this web-site uses "action" to dispatch on
 (define (dispatch-on-action req)
   (current-request req)
-  (parameterize ([current-login-status (get-login-status req)])
+  (def login-status (get-login-status req))
+  (def username     (and login-status (get-cookie-value req "username")))
+  (def user         (and username (get-user #:username username)))
+  (parameterize ([current-login-status (and user login-status)]
+                 [current-user         (and login-status user)])
     (match (get-binding #"action")
-      [#"updown"     (do-updown)]        ; a voting arrow was clicked
-      [#"submitnew"  (do-submit-new)]    ; the "submit new" link on the front page was clicked
-      [#"submit"     (do-submit)]        ; new entry sent from the new entry page
-      [#"about"      (do-about)]         ; show the about page
-      [_             (do-front-page)]))) ; show front page
+      [#"updown"       (do-updown)]        ; a voting arrow was clicked
+      [#"submitnew"    (do-submit-new)]    ; the "submit new" link on the front page was clicked
+      [#"submit"       (do-submit)]        ; new entry sent from the new entry page
+      [#"about"        (do-about)]         ; show the about page
+      [#"login"        (do-login-page)]    ; show the login page
+      [#"submit-login" (do-submit-login)]  ; check username and password
+      [#"logout"       (do-logout)]        ; logout, then show front page
+      [_               (do-front-page)]))) ; show front page
 
 ;;;
 ;;; ACTIONS
@@ -108,6 +128,42 @@
 (define (do-front-page)
   (def result (html-front-page 0 1 (page 0)))
   (response/output (λ (out) (display result out))))
+
+(define (do-login-page)
+  (def result (html-login-page))
+  (response/output (λ (out) (display result out))))
+
+(define (do-submit-login)
+  (def u (bytes->string/utf-8 (get-binding #"username")))
+  (def p (get-binding #"password"))
+  (write u) (newline)
+  (write p) (newline)
+  (cond
+    [(and u p) (match (authenticate-user u p)
+                 ; On a successful login we generate a logged-in cookie,
+                 ; and redirect to the frontpage.
+                 ; The redirection prevents the form data being submitted
+                 ; twice due to reloads in the browser.
+                 [#t
+                  (displayln (list 'do-submit-login "login ok"))
+                  (redirect-to
+                   "control" temporarily
+                   #:headers (map cookie->header
+                                  (list (make-username-cookie u)
+                                        (make-logged-in-cookie))))]
+                 ; If the login failed, the user must try again.
+                 [(authentication-error msg)
+                  (displayln (list 'do-submit-login msg))
+                  (redirect-to "control?action=login" temporarily)])]
+    [else      (displayln (list 'do-submit-login 'u u 'p p))
+               (redirect-to "control?action=login" temporarily)]))
+
+(define (do-logout)
+  (def result (html-login-page))
+  (redirect-to "control" temporarily
+               #:headers (map cookie->header
+                              (list (make-logged-out-cookie)))))
+
 
 
 (define (do-updown) ; an arrow was clicked

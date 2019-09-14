@@ -24,6 +24,7 @@
 ;; 
 
 (provide
+ ;; Entry
  (schema-out entry)
  ~entry            ; format entry as a string
  insert-entry      ; insert entry into database 
@@ -33,6 +34,11 @@
  page              ; page of entries
  url-in-db?        ; is url already in database?
  PAGE-LIMIT
+
+ ;; User
+ (schema-out user)
+ get-user
+ authenticate-user
  )
 
 
@@ -42,7 +48,7 @@
 
 (require openssl/sha1
          db deta gregor threading
-         "def.rkt" "exn.rkt"
+         "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
          "user-names.rkt")
 
@@ -206,7 +212,7 @@
     [(? integer? id) (get-user/id id)]
     [_ (match username
          [(? string? un) (get-user/username un)]
-         [#f (error 'get-user "neither user(id) or username provided")])]))
+         [#f (error 'get-user (~a "neither user(id) or username provided, got: " user))])]))
 
 (define (~user u)
   (set! u (get-user u))
@@ -221,9 +227,8 @@
   (lookup db (~> (from user #:as u) (where (= id ,id)))))
 
 (define (get-user/username username)
-  (sequence-first
-   (in-entities db (~> (from user #:as u)
-                       (where (= username ,username))))))
+  (lookup db (~> (from user #:as u)
+                 (where (= username ,username)))))
 
 (define (username-in-db? username)
   (positive? (lookup db (~> (from user #:as u)
@@ -256,7 +261,6 @@
     ;       In theory two different users could register at almost the same time
     (insert-user u)))
 
-(struct authentication-error (message) #:transparent)
 
 (define (authenticate-user username password)
   (match (get-user/username username)

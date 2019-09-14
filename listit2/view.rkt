@@ -63,7 +63,8 @@
 
 (provide html-about-page
          html-front-page
-         html-submit-new-page)
+         html-submit-new-page
+         html-login-page)
 
 
 ;; Dependencies
@@ -72,7 +73,8 @@
          racket/format racket/file racket/match net/sendurl
          urlang/html (only-in scribble/html label)
          (prefix-in html: urlang/html)
-         "def.rkt" "model.rkt")
+         "def.rkt" "parameters.rkt"
+         "model.rkt")
 
 ;;;
 ;;; Parameters
@@ -114,6 +116,7 @@
     @navigation-bar{}                       
     @div[class: "container-fluid main_column" style]{@xs}])
 
+
 ; navigation-bar
 ;   The navigation bar appears on top of all pages and shows the user
 ;   the current (active) page.
@@ -123,27 +126,38 @@
   (define (active item)
     (cond [(equal? (~a item) (~a (current-page))) " active"]
           [else                                   ""]))  
-  @navbar{
-      @img[class: "racket-logo" src: white-racket-logo
-           alt: "racket logo" width: "40px" height: "40px"]
-      @nbsp @nbsp
-      @div[class: "navbar-nav-scroll"]{
-        @ul[class: "navbar-nav bd-navbar-nav flex-row"]{
-          @li[class: (~a "nav-item" (active 'home))]{
-            @a[class: "nav-link" href: "?"]{Home}}
-          @span[class: "navbar-text"]{ | }
-          @li[class: (~a "nav-item" (active 'submit))]{
-            @a[class: "nav-link" href: "?action=submitnew"]{Submit}}
-          @span[class: "navbar-text"]{ | }
-          @li[class: (~a "nav-item" (active 'about))]{
-            @a[class: "nav-link" href: "?action=about"]{About}}}}})
+  @navbar[class: "navbar-nav-scroll"
+           @img[class: "racket-logo" src: white-racket-logo
+                 alt:  "racket logo" width: "40px" height: "40px"]
+           @nbsp @nbsp
+           @ul[class: "navbar-nav bd-navbar-nav flex-row mr-auto"
+                @li[class: (~a "nav-item" (active 'home))
+                     @a[class: "nav-link" href: "?"]{Home}]
+                @span[class: "navbar-text"]{ | }
+                @li[class: (~a "nav-item" (active 'submit))
+                     @a[class: "nav-link" href: "?action=submitnew"]{Submit}]
+                @span[class: "navbar-text"]{ | }
+                @li[class: (~a "nav-item" (active 'about))
+                     @a[class: "nav-link" href: "?action=about"]{About}]]
+           @(login-status)])
 
+(define (login-status)
+  (def u (current-user))
+  (def name (and (user? u) (user-username u)))
+  (match (current-login-status)
+    [#f @ul[class: "navbar-nav bd-navbar-nav flex-row"
+             @li[class: "nav-item ml-auto"
+                  @a[class: "nav-link" href: "?action=login"]{login}]]]
+    [_ @ul[class: "navbar-nav bd-navbar-nav flex-row"
+            @a[class: "nav-link" href: "?action=user"]{@|name|}
+            @span[class: "navbar-text"]{ | }
+            @a[class: "nav-link" href: "?action=logout"]{logout}]]))
 
 (define (submit-button . xs)
-  @button[type: "submit" class: "btn btn-primary"]{@xs})
+  (apply button (list* type: "submit" class: "btn btn-primary" @xs)))
 
 (define (form-group . xs)
-  @div[class: "form-group"]{@xs})
+  (apply div (list* class: "form-group"  @xs)))
     
 (define (form-input . xs)
   ; Bootstrap uses the class "form-control" for inputs.
@@ -152,7 +166,7 @@
 (define (navbar . xs)
   ; Bootstrap uses the class "navbar" for the navigation bar.
   ; A dark navigation bar will get white text.
-  @html:nav[class: "navbar navbar-expand-lg navbar-dark"]{@xs})
+  (apply html:nav (list* class: "navbar navbar-expand-lg navbar-dark" @xs)))
 
 (define (navbar-brand-a . xs)
   ; Bootstrap uses the class "navbar-brand" for the brand (logo).
@@ -162,7 +176,7 @@
   (apply div (list* class: "list-group" @xs)))
 
 (define (list-item . xs)
-  @div[class: "list-group-item"]{@xs})
+  (apply div class: "list-group-item" @xs))
 
 (define (list-item-action . xs)
   (apply a (list* class: "list-group-item" xs)))
@@ -453,6 +467,34 @@
                document.@|form-name|.@|form-item|.value='@|id|';
                document.@|form-name|.submit(); 
                }]{@text})
+
+;;;
+;;; Login Page
+;;; 
+
+
+(define (html-login-page)
+  (current-page "login")
+  (html-page
+   #:title "List it! - Login"
+   #:body
+   @main-column[
+     @h1{Login}
+     @form[name: "loginform" action: "control.rkt"]{
+       @input[name: "action" value: "submit-login" type: "hidden"]
+       @form-group{
+         @label[for: "username"]{Username}
+         @form-input[name: "username"   type: "text" value: ""]}
+       @form-group{
+         @label[for: "password"]{Password}
+         @form-input[name: "password" type: "password" value: ""]}
+       @submit-button{Login}}
+     @p{}]))
+
+          
+
+
+
 
 ;;;
 ;;; Icons
