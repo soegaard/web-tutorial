@@ -438,26 +438,31 @@
 ;;; List of entries
 
 (define (html-list-of-entries page-number rank-of-first-entry entries)
+  (define logged-in? (current-login-status))
   (define (entries->rows entries)
     (for/list ([e entries] [rank (in-naturals rank-of-first-entry)])
       (entry->table-row e rank)))
   (define (entry->table-row e rank)
     (defm (struct* entry ([title the-title] [url the-url] [score the-score] [id id])) e)
     (def  form-name (~a "arrowform" id))
-    @div[class: "entry-row row"]{  
-      @span[class: "rank-col  col-auto"]{ @rank }
-      @span[class: "arrow-col col-auto row" 
-        @form[class: "arrows" name: form-name action: "control.rkt"]{
-          @input[name: "arrow" type: "hidden"] 
-          @input[name: "entry_id"  type: "hidden" value: id]
-          @input[name: "action"    type: "hidden" value: "updown"]
-          @span[class: "updowngrid"
-            @(html-a-submit form-name "arrow" "up"   (html-icon 'chevron-up))
-            @(html-a-submit form-name "arrow" "down" (html-icon 'chevron-down))]}]
+    @div[class: "entry-row row"  
+          @span[class: "rank-col  col-auto"]{ @rank }
+          ; only display arrows when the user is logged in
+          @(cond
+             [logged-in?
+              @span[class: "arrow-col col-auto row" 
+                     @form[class: "arrows" name: form-name action: "control.rkt"
+                            @input[name: "arrow" type: "hidden"] 
+                            @input[name: "entry_id"  type: "hidden" value: id]
+                            @input[name: "action"    type: "hidden" value: "updown"]
+                            @span[class: "updowngrid"
+                                   @(html-a-submit form-name "arrow" "up"   (html-icon 'chevron-up))
+                                   @(html-a-submit form-name "arrow" "down" (html-icon 'chevron-down))]]]]
+             [else         @span{}])
       @span[class: "titlescore-col col"
          @span[class: "titlescore"
            @a[href: the-url]{ @the-title } 
-           @span[class: "score"]{@the-score points}]]})
+           @span[class: "score"]{@the-score points}]]])
                                                        
   @span[class: "entries container-fluid"]{
     @(entries->rows entries)})
