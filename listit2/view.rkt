@@ -113,8 +113,9 @@
 ;   The style main_colum is defined in the section below styling.
 (define (main-column . xs)
   @div[class: "container"
-    @navigation-bar{}                       
-    @div[class: "container-fluid main_column" style]{@xs}])
+        @navigation-bar{}                       
+        @div[class: "container-fluid main_column" style
+              @xs]])
 
 
 ; navigation-bar
@@ -479,6 +480,7 @@
    #:title "List it! - Login"
    #:body
    @main-column[
+     @nbsp
      @h1{Login}
      @form[name: "loginform" action: "control.rkt"]{
        @input[name: "action" value: "submit-login" type: "hidden"]
@@ -489,7 +491,24 @@
          @label[for: "password"]{Password}
          @form-input[name: "password" type: "password" value: ""]}
        @submit-button{Login}}
-     @p{}]))
+
+     @nbsp @br @br
+     
+     @h1{Create Account}
+     @form[name: "createaccountform" action: "control.rkt"]{
+       @input[name: "action" value: "submit-create-account" type: "hidden"]
+       @form-group{
+         @label[for: "username"]{Username}
+         @form-input[name: "username"   type: "text" value: ""]}
+       @form-group{
+         @label[for: "password"]{Password}
+         @form-input[name: "password" type: "password" value: ""]}
+       @form-group{
+         @label[for: "email"]{Email (optional)}
+         @form-input[name: "email" type: "email" value: ""]}
+       @submit-button{Create Account}}
+
+     @p{@nbsp}]))
 
           
 

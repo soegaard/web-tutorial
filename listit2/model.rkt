@@ -39,6 +39,7 @@
  (schema-out user)
  get-user
  authenticate-user
+ create-user
  )
 
 
@@ -236,8 +237,6 @@
 
 
 (define (create-user username password email)
-  ; Note: Remember to insert user afterwards
-  ; Note: The actual insertion will provoke an exception if the username is use
   (unless (good-username? username)
     (error (exn:fail:user:bad (bad-username-reason username))))
 

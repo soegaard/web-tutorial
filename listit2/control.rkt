@@ -23,7 +23,7 @@
          web-server/http/cookie
          web-server/http/id-cookie ; authenticated cookies
          ; "config.rkt"
-         "def.rkt" "parameters.rkt" "structs.rkt"
+         "def.rkt" "exn.rkt" "parameters.rkt" "structs.rkt"
          "model.rkt" "view.rkt")
 
 ;;;
@@ -115,6 +115,8 @@
       [#"login"        (do-login-page)]    ; show the login page
       [#"submit-login" (do-submit-login)]  ; check username and password
       [#"logout"       (do-logout)]        ; logout, then show front page
+      [#"submit-create-account"            ; create new user
+       (do-submit-create-account)]
       [_               (do-front-page)]))) ; show front page
 
 ;;;
@@ -136,8 +138,6 @@
 (define (do-submit-login)
   (def u (bytes->string/utf-8 (get-binding #"username")))
   (def p (get-binding #"password"))
-  (write u) (newline)
-  (write p) (newline)
   (cond
     [(and u p) (match (authenticate-user u p)
                  ; On a successful login we generate a logged-in cookie,
@@ -157,6 +157,25 @@
                   (redirect-to "control?action=login" temporarily)])]
     [else      (displayln (list 'do-submit-login 'u u 'p p))
                (redirect-to "control?action=login" temporarily)]))
+
+(define (do-submit-create-account)
+  (def u (bytes->string/utf-8 (get-binding #"username")))
+  (def p (get-binding #"password"))
+  (def e (bytes->string/utf-8 (get-binding #"email")))
+  (write u) (newline)
+  (write p) (newline)
+  (with-handlers ([exn:fail:user:bad?
+                   (λ (e)
+                     (def msg (exn-message e))
+                     (displayln msg) ; todo: show user
+                     (redirect-to "control?action=login" temporarily))])
+    (create-user u p e)
+    (redirect-to "control" temporarily
+                 #:headers (map cookie->header
+                                (list (make-username-cookie u)
+                                      (make-logged-in-cookie))))))
+    
+    
 
 (define (do-logout)
   (def result (html-login-page))

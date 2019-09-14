@@ -9,7 +9,6 @@
 (define current-request (make-parameter #f))
 
 
-(define current-username    (make-parameter #f))
 (define current-user        (make-parameter #f))
 
 ; The control checks login-status and sets the parameter.
