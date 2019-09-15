@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;;;
 ;;; ListIt 2
 ;;;
@@ -47,8 +47,8 @@
 ;;; Dependencies
 ;;;
 
-(require openssl/sha1
-         db deta gregor threading
+(require racket/string racket/match racket/format racket/sequence
+         openssl/sha1 db deta gregor threading
          "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
          "user-names.rkt")
@@ -161,15 +161,10 @@
                       (where (= url ,url-str))))])
     e))
 
-(define (sequence-first s)
-  (sequence-ref s 0))
-
 (define (count-entries-with-url url-str)
-  (sequence-first
-   (in-entities db
-     (~> (from entry #:as e)
-         (where (= url ,url-str))
-         (select (count *))))))
+  (lookup db (~> (from entry #:as e)
+                 (where (= url ,url-str))
+                 (select (count *)))))
 
 (define (url-in-db? url-str)
   (positive? (count-entries-with-url url-str)))
@@ -188,8 +183,7 @@
 (define-schema user
   ([id              id/f      #:primary-key #:auto-increment]
    [username        string/f  #:unique #:contract non-empty-string?]
-   [key             binary/f] ; key derived from password and salt 
-   [salt            binary/f] ; non-secret
+   [key             string/f] ; key derived from password and salt 
    [email           string/f]
    [email-validated boolean/f]
    [send-digest     integer/f   #:contract digest-value?]  
@@ -242,10 +236,8 @@
 
   ; TODO create-user : validate email
   
-  (def salt (random-salt))
   (def u (make-user #:username        (normalize-username username)
-                    #:key             (derive-key password salt)
-                    #:salt            salt
+                    #:key             (derive-key password) ; also embeds salt
                     #:email           email
                     #:email-validated #f
                     #:send-digest     <digest:no>
@@ -264,9 +256,7 @@
 (define (authenticate-user username password)
   (match (get-user/username username)
     [#f (authentication-error "username not in db")]
-    [u  (def s (user-salt u))
-        (def k (derive-key password s))
-        (if (equal? k (user-key u))
+    [u  (if (verify-password (user-key u))
             #t
             (authentication-error "wrong password"))]))
 

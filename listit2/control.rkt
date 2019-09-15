@@ -162,8 +162,6 @@
   (def u (bytes->string/utf-8 (get-binding #"username")))
   (def p (get-binding #"password"))
   (def e (bytes->string/utf-8 (get-binding #"email")))
-  (write u) (newline)
-  (write p) (newline)
   (with-handlers ([exn:fail:user:bad?
                    (λ (e)
                      (def msg (exn-message e))
