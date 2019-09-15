@@ -65,5 +65,6 @@ abstraction `id-cookie` which works great for this purpose.
 See more in `control.rkt`
 
 
-![Front Page](https://i.imgur.com/7AEneg6.png)
+![Front Page](https://i.imgur.com/C05Mli7.png)
+![Login Page](https://i.imgur.com/Yx5R3KS.png)
 ![About](https://i.imgur.com/ituNrxn.png)
