@@ -28,14 +28,17 @@
  (except-out (schema-out entry) make-entry)
  create-entry
  get-entry
+ get-entry/url     ; get youngest entry with a given url
  ~entry            ; format entry as a string
  insert-entry      ; insert entry into database 
  increase-score    ; increase score of entry
  decrease-score    ; decrease score of entry
  top               ; top entries (highest scores)
  page              ; page of entries
+ newest            ; page of entries, sort order after age
  from-site         ; entries from given site
  url-in-db?        ; is url already in database?
+ recent?           ; is the entry less than a month old?
  PAGE-LIMIT
 
  ;; User
@@ -54,8 +57,8 @@
 ;;; Dependencies
 ;;;
 
-(require racket/string racket/match racket/format racket/sequence net/url
-         openssl/sha1 db deta gregor threading
+(require racket/format (except-in racket/list group-by) racket/match racket/sequence racket/string
+         net/url openssl/sha1 db deta gregor gregor/period threading
          "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
          "user-names.rkt")
@@ -147,6 +150,18 @@
     [(? integer? id)    (lookup db (~> (from entry #:as e) (where (= id ,id))))]
     [_ (error 'get-entry (~a "entry or entry id expected, got: " entry))]))
 
+(define (get-entry/url url)
+  (def es (entries-with-url url))
+  (match es
+    ['() #f]
+    [_   (first (sort es datetime>? #:key entry-created))]))
+
+(define (recent? e)
+  ; "recent" means within a month
+  (def created (entry-created e))
+  (datetime>? created (-period (now) (period [months 1]))))
+
+
 (define (insert-entry entry)
   (insert! db entry))
 
@@ -179,6 +194,14 @@
   (for/list ([e (in-entities db
                    (~> (from entry #:as e)
                        (order-by ([e.score #:desc]))
+                       (limit  ,(PAGE-LIMIT))
+                       (offset ,(* (PAGE-LIMIT) n))))])
+    e))
+
+(define (newest n)
+  (for/list ([e (in-entities db
+                   (~> (from entry #:as e)
+                       (order-by ([e.created #:desc]))
                        (limit  ,(PAGE-LIMIT))
                        (offset ,(* (PAGE-LIMIT) n))))])
     e))

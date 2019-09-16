@@ -150,6 +150,9 @@
                 @li[class: (~a "nav-item" (active 'home))
                      @a[class: "nav-link" href: "/"]{Home}]
                 @span[class: "navbar-text"]{ | }
+                @li[class: (~a "nav-item" (active 'new))
+                     @a[class: "nav-link" href: "/new"]{New}]
+                @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'submit))
                      @a[class: "nav-link" href: "/submit"]{Submit}]
                 @span[class: "navbar-text"]{ | }
@@ -157,7 +160,7 @@
                      @a[class: "nav-link" href: "/about"]{About}]
                 ; If the page isn't one of the always-feaured pages,
                 ; we need to show it
-                @(unless (member page '("home" "submit" "about"))
+                @(unless (member page '("home" "new" "submit" "about"))
                    (list @span[class: "navbar-text"]{ | }
                          @li[class: "nav-item active"
                               @a[class: "nav-link" href: (~a "/" page)]{@Page}]))]
@@ -487,13 +490,19 @@
      @p{Everything Racket related has interest.}}))
 
 ;;;
-;;; The Home Page
+;;; The Home Page and the New Page
 ;;;
 
-(define (html-home-page page-number rank-of-first-entry entries)
-  (current-page "home")
+; The only difference between the home page and the new page
+; is the sorting order. The keyword argument #:new? determines,
+; whether we are on the home page or the new page.
+
+(define (html-home-page page-number rank-of-first-entry entries #:new [new #f])
+  (def name (if new "new" "home"))
+  (def Name (if new "New" "Home"))
+  (current-page name)  
   (html-page
-   #:title "List it! - Home"
+   #:title (~a "List it! - " Name)
    #:body
    @main-column{
      @(html-list-of-entries page-number rank-of-first-entry entries)
@@ -501,7 +510,7 @@
        @ul[class: "pagination"
          @li[class: "page-item"
               @a[ ; class: "page-link"
-                  href: (~a "/home/page/" (+ page-number 1))]{More}]]]
+                  href: (~a "/" name "/page/" (+ page-number 1))]{More}]]]
      @p{ }}))
 
 
@@ -521,9 +530,9 @@
     (defm (struct* entry ([title the-title] [url the-url] [site site] [score the-score] [id id]
                                             [submitter-name submitter-name])) e)
     (def  form-name (~a "arrowform" id))
-    @div[class: "entry-row row"  
-          @(when rank 
-             @span[class: "rank-col  col-auto"]{ @rank })
+    @div[class: "entry-row row"
+          ; hide rank with `d-none` if needed (element is kept to keep size)
+          @span[class: @~a{rank-col  col-auto @(if rank "" "d-none")}]{ @(or rank "0") }
           ; to teach new users, we display the voting arrows, if they are logged-out
           @(when rank
              @span[class: "arrow-col col-auto row" 

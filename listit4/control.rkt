@@ -139,18 +139,20 @@
    [("")                                          (λ (req) (do-home req 0))]                 
    [("home")                                      (λ (req) (do-home req 0))]
    [("home" "page" (integer-arg))                 do-home]
+   [("new")                                       (λ (req)   (do-home req 0 #:new #t))]
+   [("new" "page" (integer-arg))                  (λ (req n) (do-home req n #:new #t))]
    [("user" (string-arg))                         do-user]
-   [("from" (integer-arg))                        do-from]
+   [("from" (integer-arg))                        do-from]  ; entries from same site as entry-id
    [("about")                                     do-about]                
    [("login")                                     do-login/create-account] 
    [("submit")                                    do-submit]               ; new entry page
    
    ; actions 
    [("vote" (vote-direction-arg) (integer-arg) (integer-arg)) #:method "post"  do-vote]
-   ; [("vote" (vote-direction-arg) (integer-arg))             do-vote] ; also handle fake votes
 
-   [("login-to-vote")                                            do-login-to-vote]
-   [("login-to-submit")                                          do-login-to-submit]
+   [("login-to-vote")                             do-login-to-vote]
+   [("login-to-submit")                           do-login-to-submit]
+   [("resubmission")                              do-resubmission]
 
    ; form submissions
    [("logout-submitted")         #:method "post"  do-logout-submitted] ; logout, then show front page
@@ -172,10 +174,13 @@
   (def result (html-about-page))
   (response/output (λ (out) (display result out))))
 
-(define (do-home req page-number . xs)
-  (def entries (page page-number))
+(define (do-home req page-number #:new [new #f])
+  (def entries (if new
+                   (newest page-number)
+                   (page   page-number)))
+  ; rank irrelevant for displaying new entries
   (def rank-of-first-entry (+ 1 (* page-number (PAGE-LIMIT))))
-  (def result (html-home-page page-number rank-of-first-entry entries))
+  (def result (html-home-page page-number rank-of-first-entry entries #:new new))
   (response/output (λ (out) (display result out))))
 
 (define (do-user req username)
@@ -198,6 +203,10 @@
 (define (do-login-to-submit req)
   (parameterize ([current-banner-message "Login to submit."])
     (do-login/create-account req)))
+
+(define (do-resubmission req)
+  (parameterize ([current-banner-message "Your submission was submitted recently by another user."])
+    (do-home req 0)))
 
 (define (do-login/create-account req)
   (def result (html-login-page))
@@ -292,7 +301,10 @@
   (def title (get-binding #"title" bytes->string/utf-8))
   
   ; If the submitted url and title are valid, we will insert an
-  ; entry in the databas and redirect to the database.
+  ; entry in the database and redirect to the database.
+  ; Unless the submissions already is in the database, in which
+  ; case we allow it if the previous submission is older than a month.
+  
   ; If the data is invalid, we need to show the submit page again,
   ; this time with validation results.
   
@@ -303,12 +315,19 @@
     [logged-in?
      (cond
        [(all-valid? vu vt)
-        (insert-entry (create-entry #:title title #:url url
-                                    #:score 10
-                                    #:submitter (user-id u)
-                                    #:submitter-name (user-username u)))
-        ; to make sure a reload doesn't resubmit, we redirect to the front page
-        (redirect-to "/" temporarily)]
+        (def e (get-entry/url url))
+        (cond
+          [(and e (recent? e))
+           ; entry already in database and recently
+           ; if we had comments, we would redirect to the comments page
+           (redirect-to "/resubmission")]
+          [else            
+           (insert-entry (create-entry #:title title #:url url
+                                       #:score 10
+                                       #:submitter (user-id u)
+                                       #:submitter-name (user-username u)))
+           ; to make sure a reload doesn't resubmit, we redirect to the front page
+           (redirect-to "/" temporarily)])]
        [else
         (def result (html-submit-page #:validation (list vu vt)))
         (response/output

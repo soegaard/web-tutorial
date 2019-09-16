@@ -14,14 +14,13 @@
 + home   : show site after title
 + from   : page showing all submissions from a certain site
 + vote   : stay on same page after voting
++ submit : only allow resubmission after a month has passed
++ new    : show recently submitted entries
 
 ## Must Do
 
-- submit : only allow resubmission after a grace period
-
-- new    : show recently submitted entries
 - login  : input validate
-
+- home   : the sort order should consider both votes and age
 
 # Like To Do
 - search : users / sites
