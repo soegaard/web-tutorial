@@ -139,6 +139,7 @@
    [("home")                                      (λ (req) (do-home req 0))]
    [("home" "page" (integer-arg))                 do-home]
    [("user" (string-arg))                         do-user]
+   [("from" (integer-arg))                        do-from]
    [("about")                                     do-about]                
    [("login")                                     do-login/create-account] 
    [("submit")                                    do-submit]               ; new entry page
@@ -179,6 +180,13 @@
 (define (do-user req username)
   (def u (get-user username))
   (def result (html-user-page u))
+  (response/output (λ (out) (display result out))))
+
+(define (do-from req entry-id)
+  (def e (get-entry entry-id)) ; #f if not found
+  (def s (and e (entry-site e)))
+  (def entries (or (and e (from-site s)) '()))
+  (def result (html-from-page entries))
   (response/output (λ (out) (display result out))))
 
 

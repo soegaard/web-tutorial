@@ -65,7 +65,8 @@
          html-home-page
          html-submit-page
          html-login-page
-         html-user-page)
+         html-user-page
+         html-from-page)
 
 
 ;; Dependencies
@@ -509,25 +510,32 @@
 (define (html-list-of-entries page-number rank-of-first-entry entries)
   (define logged-in? (current-login-status))
   (define (entries->rows entries)
-    (for/list ([e entries] [rank (in-naturals rank-of-first-entry)])
-      (entry->table-row e rank)))
+    (cond [(and page-number rank-of-first-entry)
+           (for/list ([e entries] [rank (in-naturals rank-of-first-entry)])
+             (entry->table-row e rank))]
+          [else
+           (for/list ([e entries])
+             (entry->table-row e #f))]))
   (define (entry->table-row e rank)
-    (defm (struct* entry ([title the-title] [url the-url] [score the-score] [id id]
+    (defm (struct* entry ([title the-title] [url the-url] [site site] [score the-score] [id id]
                                             [submitter-name submitter-name])) e)
     (def  form-name (~a "arrowform" id))
     @div[class: "entry-row row"  
-          @span[class: "rank-col  col-auto"]{ @rank }
+          @(when rank 
+             @span[class: "rank-col  col-auto"]{ @rank })
           ; to teach new users, we display the voting arrows, if they are logged-out
-          @span[class: "arrow-col col-auto row" 
-            @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
-              @input[name: "arrow" type: "hidden"] 
-                @span[class: "updowngrid"
-                  @(html-a-submit form-name (~a "/vote/up/"   id) (html-icon 'chevron-up))
-                  @(html-a-submit form-name (~a "/vote/down/" id) (html-icon 'chevron-down))]]]
+          @(when rank
+             @span[class: "arrow-col col-auto row" 
+               @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
+                 @input[name: "arrow" type: "hidden"] 
+                   @span[class: "updowngrid"
+                    @(html-a-submit form-name (~a "/vote/up/"   id) (html-icon 'chevron-up))
+                    @(html-a-submit form-name (~a "/vote/down/" id) (html-icon 'chevron-down))]]])
           @span[class: "titlescore-col col"
             @span[class: "titlescore"
-              @a[href: the-url]{ @the-title } 
-                   @span[class: "score"]{@the-score points by
+              @span[@a[href: the-url]{ @the-title }
+                      " (" @a[href: (~a "/from/" id)]{@site} ") "]
+              @span[class: "score"]{@the-score points by
                      @span[class: "submitter-name"
                             @a[href: (~a "/user/" submitter-name) ]{ @submitter-name }]}]]]) 
                                                        
@@ -539,7 +547,20 @@
   @a[class: class href: @~a{javascript:
                             document.@|form-name|.action='@|action|';
                             document.@|form-name|.submit(); 
-                           }]{@text})
+                            }]{@text})
+
+;;;
+;;; From
+;;;
+
+(define (html-from-page entries)
+  (current-page "from")
+  (html-page
+   #:title "List it! - From"
+   #:body
+   @main-column{
+     @(html-list-of-entries #f #f entries)
+     @p{ }}))
 
 ;;;
 ;;; Login Page

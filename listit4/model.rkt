@@ -27,12 +27,14 @@
  ;; Entry
  (except-out (schema-out entry) make-entry)
  create-entry
+ get-entry
  ~entry            ; format entry as a string
  insert-entry      ; insert entry into database 
  increase-score    ; increase score of entry
  decrease-score    ; decrease score of entry
  top               ; top entries (highest scores)
  page              ; page of entries
+ from-site         ; entries from given site
  url-in-db?        ; is url already in database?
  PAGE-LIMIT
 
@@ -52,7 +54,7 @@
 ;;; Dependencies
 ;;;
 
-(require racket/string racket/match racket/format racket/sequence
+(require racket/string racket/match racket/format racket/sequence net/url
          openssl/sha1 db deta gregor threading
          "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
@@ -62,7 +64,7 @@
 ;;; CONFIGURATION
 ;;;
 
-(define PAGE-LIMIT (make-parameter 3))   ; number of entries on each page
+(define PAGE-LIMIT (make-parameter 30))   ; number of entries on each page
 
 
 ;;;
@@ -107,6 +109,7 @@
   ([id             id/f       #:primary-key #:auto-increment]
    [title          string/f   #:contract non-empty-string?]
    [url            string/f   #:contract non-empty-string?]
+   [site           string/f]
    [score          integer/f]
    [created        datetime/f]
    [submitter      id/f]       ; user id
@@ -117,11 +120,15 @@
                       #:created   [created (now)]
                       #:submitter submitter
                       #:submitter-name submitter-name)
-  (make-entry #:title     title
-              #:url       url
-              #:score     score
-              #:created   created
-              #:submitter submitter
+  (def u (string->url url))
+  (def site (if u (url-host u) ""))
+
+  (make-entry #:title          title
+              #:url            url
+              #:site           site
+              #:score          score
+              #:created        created
+              #:submitter      submitter
               #:submitter-name submitter-name))
 
 
@@ -155,8 +162,8 @@
 
 (define (~entry e)
   (set! e (get-entry e))
-  (defm (entry _ id title url score created submitter submitter-name) e)
-  (~a id ":'" title "':'" url "':" score ":" submitter-name))
+  (defm (entry _ id title url site score created submitter submitter-name) e)
+  (~a id ":'" title "':'" url "':(" site ") " score ":" submitter-name))
 
 
 ;;; DATABASE RETRIEVAL
@@ -193,6 +200,13 @@
 (define (count-entries)
   (lookup db (~> (from entry #:as e)
                  (select (count *)))))
+
+(define (from-site s)
+  (for/list ([e (in-entities db
+                  (~> (from entry #:as e)
+                      (where (= site ,s))
+                      (order-by ([e.score #:desc]))))])
+    e))
 
 
 ;;;
