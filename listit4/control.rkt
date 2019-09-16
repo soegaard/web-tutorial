@@ -13,6 +13,7 @@
 ;; Imports
 
 (require (for-syntax racket/base)
+         racket/format
          racket/match
          racket/promise
          racket/runtime-path
@@ -145,8 +146,8 @@
    [("submit")                                    do-submit]               ; new entry page
    
    ; actions 
-   [("vote" (vote-direction-arg) (integer-arg)) #:method "post"  do-vote]
-   [("vote" (vote-direction-arg) (integer-arg))                  do-vote] ; also handle fake votes
+   [("vote" (vote-direction-arg) (integer-arg) (integer-arg)) #:method "post"  do-vote]
+   ; [("vote" (vote-direction-arg) (integer-arg))             do-vote] ; also handle fake votes
 
    [("login-to-vote")                                            do-login-to-vote]
    [("login-to-submit")                                          do-login-to-submit]
@@ -251,7 +252,7 @@
     
 
 
-(define (do-vote req direction entry-id) ; an arrow was clicked
+(define (do-vote req direction entry-id page-number) ; an arrow was clicked on the given page
   (def u   (current-user))
   (def uid (user-id u))
   (def eid entry-id)
@@ -267,7 +268,7 @@
               ["down" (when eid (decrease-score eid) (register-vote))]    
               [else    'do-nothing])])
             ; to make sure a reload doesn't resubmit, we redirect to the front page
-         (redirect-to "/home" temporarily)]
+         (redirect-to (~a "/home/page/" page-number) temporarily)]
 
      ; logged-out
      [_ (redirect-to "/login-to-vote" temporarily)]))

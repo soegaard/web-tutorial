@@ -13,10 +13,10 @@
 + prevent voting multiple times on same entry
 + home   : show site after title
 + from   : page showing all submissions from a certain site
++ vote   : stay on same page after voting
 
 ## Must Do
 
-- vote   : stay on same page after voting
 - submit : only allow resubmission after a grace period
 
 - new    : show recently submitted entries

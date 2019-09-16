@@ -508,6 +508,7 @@
 ;;; List of entries
 
 (define (html-list-of-entries page-number rank-of-first-entry entries)
+  (def pn page-number)
   (define logged-in? (current-login-status))
   (define (entries->rows entries)
     (cond [(and page-number rank-of-first-entry)
@@ -529,8 +530,8 @@
                @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
                  @input[name: "arrow" type: "hidden"] 
                    @span[class: "updowngrid"
-                    @(html-a-submit form-name (~a "/vote/up/"   id) (html-icon 'chevron-up))
-                    @(html-a-submit form-name (~a "/vote/down/" id) (html-icon 'chevron-down))]]])
+                    @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'chevron-up))
+                    @(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
           @span[class: "titlescore-col col"
             @span[class: "titlescore"
               @span[@a[href: the-url]{ @the-title }
