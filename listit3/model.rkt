@@ -256,7 +256,7 @@
 (define (authenticate-user username password)
   (match (get-user/username username)
     [#f (authentication-error "username not in db")]
-    [u  (if (verify-password (user-key u))
+    [u  (if (verify-password password (user-key u))
             #t
             (authentication-error "wrong password"))]))
 

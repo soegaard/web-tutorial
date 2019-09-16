@@ -3,9 +3,15 @@
 The folder `listit` contains a basic MVC-based implementation
 of a "submit a link and vote" site.
 
-The folder `listit2` expands on the iniital example and add users.
+The folder `listit2` expands on the initial example and add users.
 Adding users is conceptually simple, but in practise there are
 many details to consider. 
+
+The folder `listit3` has the following changes:
+ - validation of form data on the "submit new entry" page
+ - introduces url dispatch in the control (instead of dispatching on action)
+ - front page renamed to home
+
 
 ## Changes
 ```

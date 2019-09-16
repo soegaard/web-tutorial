@@ -62,8 +62,8 @@
 ;; The control needs the following functions:
 
 (provide html-about-page
-         html-front-page
-         html-submit-new-page
+         html-home-page
+         html-submit-page
          html-login-page)
 
 
@@ -139,13 +139,13 @@
            @nbsp @nbsp
            @ul[class: "navbar-nav bd-navbar-nav flex-row mr-auto"
                 @li[class: (~a "nav-item" (active 'home))
-                     @a[class: "nav-link" href: "?"]{Home}]
+                     @a[class: "nav-link" href: "/"]{Home}]
                 @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'submit))
-                     @a[class: "nav-link" href: "?action=submitnew"]{Submit}]
+                     @a[class: "nav-link" href: "/submit"]{Submit}]
                 @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'about))
-                     @a[class: "nav-link" href: "?action=about"]{About}]]
+                     @a[class: "nav-link" href: "/about"]{About}]]
            @(login-status)])
 
 (define (login-status)
@@ -154,11 +154,17 @@
   (match (current-login-status)
     [#f @ul[class: "navbar-nav bd-navbar-nav flex-row"
              @li[class: "nav-item ml-auto"
-                  @a[class: "nav-link" href: "?action=login"]{login}]]]
+                  @a[class: "nav-link" href: "/login"]{login}]]]
     [_ @ul[class: "navbar-nav bd-navbar-nav flex-row"
-            @a[class: "nav-link" href: "?action=user"]{@|name|}
+            @a[class: "nav-link" href: (~a "/user/" name)]{@name}
             @span[class: "navbar-text"]{ | }
-            @a[class: "nav-link" href: "?action=logout"]{logout}]]))
+            ; @a[class: "nav-link" href: "/logout"]{logout}
+            @logout-link-form{}
+            ]]))
+
+(define (logout-link-form)
+  @form[class: "" name: "logout_form" action: "/logout-submitted" method: "post"
+         @(html-a-submit "logout_form" "/logout-submitted" "logout" #:class "nav-link")])
 
 (define (submit-button . xs)
   (apply button (list* type: "submit" class: "btn btn-primary" @xs)))
@@ -422,15 +428,15 @@
     @div[class: "invalid-feedback"]{@feedback}])
 
 
-(define (html-submit-new-page #:validation [the-validation #f])
+(define (html-submit-page #:validation [the-validation #f])
   (current-page "submit")
   (defm (or (list vu vt) (and vu vt #f)) the-validation)
   (html-page
-   #:title  "List it! - submit"
+   #:title  "List it! - Submit a new entry"
    #:body
    @main-column{
      @h2{Submit a new entry}
-     @form[name: "submitnewform" action: "control.rkt" method: "post" novalidate: ""]{
+     @form[name: "submitnewform" action: "/entry-submitted" method: "post" novalidate: ""]{
        @input[name: "action" value: "submit" type: "hidden"]
        @form-group[
          @label[for: "url"]{URL}
@@ -443,13 +449,13 @@
      @p{Everything Racket related has interest.}}))
 
 ;;;
-;;; The Front Page
+;;; The Home Page
 ;;;
 
-(define (html-front-page page-number rank-of-first-entry entries)
+(define (html-home-page page-number rank-of-first-entry entries)
   (current-page "home")
   (html-page
-   #:title "List it! - Front Page"
+   #:title "List it! - Home"
    #:body
    @main-column{
      @(html-list-of-entries page-number rank-of-first-entry entries)}))
@@ -471,13 +477,11 @@
           @(cond
              [logged-in?
               @span[class: "arrow-col col-auto row" 
-                     @form[class: "arrows" name: form-name action: "control.rkt"
+                     @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
                             @input[name: "arrow" type: "hidden"] 
-                            @input[name: "entry_id"  type: "hidden" value: id]
-                            @input[name: "action"    type: "hidden" value: "updown"]
                             @span[class: "updowngrid"
-                                   @(html-a-submit form-name "arrow" "up"   (html-icon 'chevron-up))
-                                   @(html-a-submit form-name "arrow" "down" (html-icon 'chevron-down))]]]]
+                                   @(html-a-submit form-name (~a "/vote/up/"   id) (html-icon 'chevron-up))
+                                   @(html-a-submit form-name (~a "/vote/down/" id) (html-icon 'chevron-down))]]]]
              [else         @span{}])
       @span[class: "titlescore-col col"
          @span[class: "titlescore"
@@ -488,11 +492,11 @@
     @(entries->rows entries)})
 
 
-(define (html-a-submit form-name form-item id text)
-  @a[href: @~a{javascript:
-               document.@|form-name|.@|form-item|.value='@|id|';
-               document.@|form-name|.submit(); 
-               }]{@text})
+(define (html-a-submit form-name action text #:class [class ""])  
+  @a[class: class href: @~a{javascript:
+                            document.@|form-name|.action='@|action|';
+                            document.@|form-name|.submit(); 
+                           }]{@text})
 
 ;;;
 ;;; Login Page
@@ -501,15 +505,13 @@
 
 (define (html-login-page #:validation [the-validation #f])
   (current-page "login")
-  (defm (or (list vu vt) (and vu vt #f)) the-validation)
   (html-page
-   #:title "List it! - Login"
+   #:title "List it! - Login or create new account"
    #:body
    @main-column[
      @nbsp
      @h1{Login}
-     @form[name: "loginform" action: "control.rkt" method: "post"]{
-       @input[name: "action" value: "submit-login" type: "hidden"]
+     @form[name: "loginform" action: "/login-submitted" method: "post"]{
        @form-group{
          @label[for: "username"]{Username}
          @form-input[name: "username"   type: "text" value: ""]}
@@ -521,8 +523,7 @@
      @nbsp @br @br
      
      @h1{Create Account}
-     @form[name: "createaccountform" action: "control.rkt"]{
-       @input[name: "action" value: "submit-create-account" type: "hidden"]
+     @form[name: "createaccountform" action: "/create-account-submitted" method: "post"]{
        @form-group{
          @label[for: "username"]{Username}
          @form-input[name: "username"   type: "text" value: ""]}
@@ -537,9 +538,6 @@
      @p{@nbsp}]))
 
           
-
-
-
 
 ;;;
 ;;; Icons

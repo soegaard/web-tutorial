@@ -11,14 +11,8 @@
          "control.rkt")
 
 
-(define-values (listit-dispatch listit-url)
-    (dispatch-rules
-     [("") dispatch-on-action]
-     [else dispatch-on-action]))
-
-
 (define (start)
-  (serve/servlet listit-dispatch
+  (serve/servlet dispatch
                  #:servlet-regexp #rx""))
 
 (start)
@@ -28,5 +22,3 @@
 ;       background, you can start the server in a new thread:
 
 ; (thread (λ () (start)))
-
-
