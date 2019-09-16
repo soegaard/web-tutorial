@@ -19,10 +19,17 @@
 
 ## Must Do
 
+- home   : remove down votes
 - login  : input validate
 - home   : the sort order should consider both votes and age
 
 # Like To Do
-- search : users / sites
-- user   : show more information
+- profile : order digest of new submisstions pr mail
+- profile : change about text
+- tag     : show only entries with given tag
+- admin   : manually add tags
 
+- search  : users / sites / tags
+- user    : show more information
+- admin   : statistics
+- user    : show about text
