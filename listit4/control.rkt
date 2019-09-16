@@ -138,6 +138,7 @@
    [("")                                          (λ (req) (do-home req 0))]                 
    [("home")                                      (λ (req) (do-home req 0))]
    [("home" "page" (integer-arg))                 do-home]
+   [("user" (string-arg))                         do-user]
    [("about")                                     do-about]                
    [("login")                                     do-login/create-account] 
    [("submit")                                    do-submit]               ; new entry page
@@ -174,6 +175,12 @@
   (def rank-of-first-entry (+ 1 (* page-number (PAGE-LIMIT))))
   (def result (html-home-page page-number rank-of-first-entry entries))
   (response/output (λ (out) (display result out))))
+
+(define (do-user req username)
+  (def u (get-user username))
+  (def result (html-user-page u))
+  (response/output (λ (out) (display result out))))
+
 
 (define (do-login-to-vote req)
   (parameterize ([current-banner-message "Login to vote."])
@@ -280,7 +287,9 @@
      (cond
        [(all-valid? vu vt)
         (insert-entry (create-entry #:title title #:url url
-                                    #:score 10 #:submitter (user-id u)))
+                                    #:score 10
+                                    #:submitter (user-id u)
+                                    #:submitter-name (user-username u)))
         ; to make sure a reload doesn't resubmit, we redirect to the front page
         (redirect-to "/" temporarily)]
        [else

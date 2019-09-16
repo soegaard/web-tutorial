@@ -64,16 +64,18 @@
 (provide html-about-page
          html-home-page
          html-submit-page
-         html-login-page)
+         html-login-page
+         html-user-page)
 
 
 ;; Dependencies
 
 (require (for-syntax racket/base)
-         racket/format racket/file racket/match net/sendurl
+         racket/format racket/file racket/match racket/string net/sendurl
          urlang/html (only-in scribble/html label)
          (prefix-in html: urlang/html)
          web-server/http/request-structs
+         gregor
          "def.rkt" "parameters.rkt" "structs.rkt"
          "validation.rkt"
          "model.rkt")
@@ -133,10 +135,12 @@
 ;   the current (active) page.
 (define (navigation-bar)
   ; The nav-item corresponding to the current page
-  ; needs the class "active" (makes item stand out)
+  ; needs the class "active" (makes item stand out)  
   (define (active item)
     (cond [(equal? (~a item) (~a (current-page))) " active"]
-          [else                                   ""]))  
+          [else                                   ""]))
+  (def page (~a (current-page)))
+  (def Page (string-titlecase page))
   @navbar[class: "navbar-nav-scroll"
            @img[class: "racket-logo" src: white-racket-logo
                  alt:  "racket logo" width: "40px" height: "40px"]
@@ -149,7 +153,13 @@
                      @a[class: "nav-link" href: "/submit"]{Submit}]
                 @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'about))
-                     @a[class: "nav-link" href: "/about"]{About}]]
+                     @a[class: "nav-link" href: "/about"]{About}]
+                ; If the page isn't one of the always-feaured pages,
+                ; we need to show it
+                @(unless (member page '("home" "submit" "about"))
+                   (list @span[class: "navbar-text"]{ | }
+                         @li[class: "nav-item active"
+                              @a[class: "nav-link" href: (~a "/" page)]{@Page}]))]
            @(login-status)])
 
 (define (login-status)
@@ -186,7 +196,7 @@
 (define (navbar . xs)
   ; Bootstrap uses the class "navbar" for the navigation bar.
   ; A dark navigation bar will get white text.
-  (apply html:nav (list* class: "navbar navbar-expand-lg navbar-dark" @xs)))
+  (apply html:nav (list* class: "navbar navbar-expand-lg navbar-dark uppernav" @xs)))
 
 (define (navbar-brand-a . xs)
   ; Bootstrap uses the class "navbar-brand" for the brand (logo).
@@ -212,7 +222,7 @@
     .mw600px        { max-width: 600px; }
     body            { font-size: 1rem; margin: 2rem; }
     a               { display: inline; }
-    nav             { background-color: var(--purple);}
+    .uppernav       { background-color: var(--purple);}
     .main_column    { background-color: #f6f6ef; }
 
     .entry-row          { vertical-align: middle; }
@@ -223,7 +233,7 @@
           .updowngrid a { display: grid; }
       .titlescore-col   { vertical-align: middle; text-align: left; display: inline-grid;}
         .titlescore     {                         text-align: left; display: inline-grid; margin: auto auto auto 0px;}
-
+      .submitter-name a { color: black; }
 ")
 
 
@@ -288,6 +298,29 @@
   </body>
   </html>})
 
+;;;
+;;; The User Page
+;;;
+
+(define (list->table xss)
+  (define (list->row xs) @tr[ (map td xs) ])
+  @table[class: "table"
+    @(apply tbody (map list->row xss))])
+
+
+(define (html-user-page user)
+  (current-page "user")
+  
+  (def u user)
+  (def name    (user-username u))
+  (def created (~t (user-created u) "E, MMMM d, y"))
+
+  (html-page
+   #:title "List it! - User"
+   #:body @main-column{ @h2{User Profile}
+                        @p{@(list->table 
+                             (list (list "user:"    name)
+                                   (list "created:" created)))}}))
 ;;;
 ;;; The About Page
 ;;;
@@ -463,9 +496,12 @@
    #:body
    @main-column{
      @(html-list-of-entries page-number rank-of-first-entry entries)
-     @p{@a[href: (~a "/home/page/" (+ page-number 1))]{More}}
+     @nav[aria-label: "more"
+       @ul[class: "pagination"
+         @li[class: "page-item"
+              @a[ ; class: "page-link"
+                  href: (~a "/home/page/" (+ page-number 1))]{More}]]]
      @p{ }}))
-
 
 
 ;;; List of entries
@@ -476,7 +512,8 @@
     (for/list ([e entries] [rank (in-naturals rank-of-first-entry)])
       (entry->table-row e rank)))
   (define (entry->table-row e rank)
-    (defm (struct* entry ([title the-title] [url the-url] [score the-score] [id id])) e)
+    (defm (struct* entry ([title the-title] [url the-url] [score the-score] [id id]
+                                            [submitter-name submitter-name])) e)
     (def  form-name (~a "arrowform" id))
     @div[class: "entry-row row"  
           @span[class: "rank-col  col-auto"]{ @rank }
@@ -487,10 +524,12 @@
                 @span[class: "updowngrid"
                   @(html-a-submit form-name (~a "/vote/up/"   id) (html-icon 'chevron-up))
                   @(html-a-submit form-name (~a "/vote/down/" id) (html-icon 'chevron-down))]]]
-      @span[class: "titlescore-col col"
-         @span[class: "titlescore"
-           @a[href: the-url]{ @the-title } 
-           @span[class: "score"]{@the-score points}]]])
+          @span[class: "titlescore-col col"
+            @span[class: "titlescore"
+              @a[href: the-url]{ @the-title } 
+                   @span[class: "score"]{@the-score points by
+                     @span[class: "submitter-name"
+                            @a[href: (~a "/user/" submitter-name) ]{ @submitter-name }]}]]]) 
                                                        
   @span[class: "entries container-fluid"]{
     @(entries->rows entries)})

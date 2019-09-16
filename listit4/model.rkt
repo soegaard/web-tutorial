@@ -99,22 +99,25 @@
 ;; an url to the article and a score representing the votes.
 
 (define-schema entry
-  ([id        id/f       #:primary-key #:auto-increment]
-   [title     string/f   #:contract non-empty-string?]
-   [url       string/f   #:contract non-empty-string?]
-   [score     integer/f]
-   [created   datetime/f]
-   [submitter id/f]       ; user id
+  ([id             id/f       #:primary-key #:auto-increment]
+   [title          string/f   #:contract non-empty-string?]
+   [url            string/f   #:contract non-empty-string?]
+   [score          integer/f]
+   [created        datetime/f]
+   [submitter      id/f]       ; user id
+   [submitter-name string/f]   ; redundant, but saves database access
    ))
 
 (define (create-entry #:title title #:url url #:score score
                       #:created   [created (now)]
-                      #:submitter submitter)
+                      #:submitter submitter
+                      #:submitter-name submitter-name)
   (make-entry #:title     title
               #:url       url
               #:score     score
               #:created   created
-              #:submitter submitter))
+              #:submitter submitter
+              #:submitter-name submitter-name))
 
 
 
@@ -147,8 +150,8 @@
 
 (define (~entry e)
   (set! e (get-entry e))
-  (defm (entry _ id title url score created submitter) e)
-  (~a id ":'" title "':'" url "':" score))
+  (defm (entry _ id title url score created submitter submitter-name) e)
+  (~a id ":'" title "':'" url "':" score ":" submitter-name))
 
 
 ;;; DATABASE RETRIEVAL
@@ -217,12 +220,15 @@
                  (select (count *)))))
 
 (define (get-user [user #f] #:username [username #f])
+  (displayln (list 'get-user user username))
   (match user
     [(? user? u)     u]
     [(? integer? id) (get-user/id id)]
     [_ (match username
          [(? string? un) (get-user/username un)]
-         [#f (error 'get-user (~a "neither user(id) or username provided, got: " user))])]))
+         [#f (if (string? user)
+                 (get-user/username user)
+                 (error 'get-user (~a "neither user(id) or username provided, got: " user)))])]))
 
 (define (~user u)
   (set! u (get-user u))
@@ -282,34 +288,15 @@
   (when (= (count-users) 0)
     (create-user "foo" #"foo" "foo@foo.com"))
   (when (= (count-entries) 0)
-    (insert-entry (create-entry #:title "Racket News"
-                                #:url   "https://racket-news.com"
-                                #:score 42
-                                #:submitter 1))
-    (insert-entry (create-entry #:title "Racket News - Issue 1"
-                                #:url   "https://racket-news.com/2019/02/racket-news-issue-1.html"
-                                #:score 11
-                                #:submitter 1))
-    (insert-entry (create-entry #:title "Racket News - Issue 2"
-                                #:url   "https://racket-news.com/2019/02/racket-news-issue-2.html"
-                                #:score 12
-                                #:submitter 1))
-    (insert-entry (create-entry #:title "Racket Blog"
-                                #:url   "https://blog.racket-lang.org"
-                                #:score 32
-                                #:submitter 1))
-    (insert-entry (create-entry #:title "Blog - Alexis King"
-                                #:url   "https://lexi-lambda.github.io/index.html"
-                                #:score 23
-                                #:submitter 1))
-    (insert-entry (create-entry #:title "Blog - Greg Hendershott"
-                                #:url   "https://www.greghendershott.com/"
-                                #:score 14
-                                #:submitter 1))
-    (insert-entry (create-entry #:title "Blogs that use Frog"
-                                #:url   "http://stevenrosenberg.net/racket/2018/03/blogs-that-use-frog.html"
-                                #:score 12
-                                #:submitter 1))))
+    (define (create title url score)
+      (create-entry #:title title #:url url #:score score #:submitter 1 #:submitter-name "foo"))
+    (insert-entry (create "Racket News" "https://racket-news.com" 42))
+    (insert-entry (create "Racket News - Issue 1" "https://racket-news.com/2019/02/racket-news-issue-1.html" 11))
+    (insert-entry (create "Racket News - Issue 2" "https://racket-news.com/2019/02/racket-news-issue-2.html" 12))
+    (insert-entry (create "Racket Blog" "https://blog.racket-lang.org" 32))
+    (insert-entry (create "Blog - Alexis King" "https://lexi-lambda.github.io/index.html" 23))
+    (insert-entry (create "Blog - Greg Hendershott" "https://www.greghendershott.com/" 14))
+    (insert-entry (create "Blogs that use Frog" "http://stevenrosenberg.net/racket/2018/03/blogs-that-use-frog.html" 12))))
 
 ;;;
 ;;; DATABASE CREATION
