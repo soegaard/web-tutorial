@@ -40,7 +40,12 @@
  (except-out (schema-out user) make-user)
  create-user
  get-user
- authenticate-user)
+ authenticate-user
+
+ ;; Votes
+ insert-vote
+ create-vote
+ has-user-voted-on-entry?)
 
 
 ;;;
@@ -284,6 +289,52 @@
             (authentication-error "wrong password"))]))
 
 
+;;;
+;;; VOTES
+;;;
+
+; In order to prevent multiple votes for the same entry from the same user,
+; we need store past votes. When we get to Hacker News size we will
+; split entries into "active" and "archived" (say older than a month) 
+; entries and only keep votes for active entries.
+; Now we just store all votes.
+
+(define-schema vote
+  ([id              id/f        #:primary-key #:auto-increment]
+   [user-id         id/f]
+   [entry-id        id/f]))
+
+; Note: We don't store whether it is an up or down vote.
+;       Don't change your mind. Also ... I intend to remove down votes.
+
+(define (has-user-voted-on-entry? user entry) ; structs or ids
+  (def u (if (user?  user)  (user-id  user)  user))
+  (def e (if (entry? entry) (entry-id entry) entry))
+  (not (zero? (lookup db (~> (from vote #:as v)
+                             (where (and (= v.user-id  ,u)
+                                         (= v.entry-id ,e)))
+                             (select (count *)))))))
+
+(define (insert-vote vote)
+  (insert! db vote))
+
+(define (create-vote user-id entry-id)
+  (make-vote #:user-id user-id #:entry-id entry-id))
+
+(define (list-votes)
+  (for/list ([v (in-entities db (from vote #:as v))])
+    v))
+
+(define (count-votes)
+  (lookup db (~> (from vote #:as v)
+                 (select (count *)))))
+
+
+
+;;;
+;;; DATABASE CREATION
+;;; 
+
 (define (populate-database)
   (when (= (count-users) 0)
     (create-user "foo" #"foo" "foo@foo.com"))
@@ -298,11 +349,7 @@
     (insert-entry (create "Blog - Greg Hendershott" "https://www.greghendershott.com/" 14))
     (insert-entry (create "Blogs that use Frog" "http://stevenrosenberg.net/racket/2018/03/blogs-that-use-frog.html" 12))))
 
-;;;
-;;; DATABASE CREATION
-;;; 
-
-(define schemas '(entry user))
+(define schemas '(entry user vote))
 
 (define (create-tables)
   ; Note: This creates the tables if they don't exist.

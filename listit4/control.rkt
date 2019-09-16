@@ -243,14 +243,22 @@
     
 
 
-(define (do-vote req direction id) ; an arrow was clicked
+(define (do-vote req direction entry-id) ; an arrow was clicked
+  (def u   (current-user))
+  (def uid (user-id u))
+  (def eid entry-id)
+  (define (register-vote) (insert-vote (create-vote uid eid)))
   (match (current-login-status)
     ; logged-in
-    [#t  (match direction
-           ["up"   (when id (increase-score id))]
-           ["down" (when id (decrease-score id))]    
-           [else    'do-nothing])
-         ; to make sure a reload doesn't resubmit, we redirect to the front page
+    [#t  (cond
+           [(has-user-voted-on-entry? uid eid)
+            'ignore-him]
+           [else
+            (match direction
+              ["up"   (when eid (increase-score eid) (register-vote))]
+              ["down" (when eid (decrease-score eid) (register-vote))]    
+              [else    'do-nothing])])
+            ; to make sure a reload doesn't resubmit, we redirect to the front page
          (redirect-to "/home" temporarily)]
 
      ; logged-out
