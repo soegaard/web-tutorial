@@ -169,7 +169,9 @@
    [("login-submitted")          #:method "post"  do-login-submitted]
    [("create-account-submitted") #:method "post"  do-create-account-submitted]
    ; no else clause means the next dispatch ought to serve other files
-   [("favicons" (string-arg))                     (λ(_ __) (next-dispatcher))]
+
+
+   ; [("favicons" (string-arg))                     (λ(_ __) (next-dispatcher))]
    #;[else
     (λ (req)
       (displayln "!!!")
