@@ -1,20 +1,7 @@
 #lang racket/base
 ;;;
-;;; ListIt 2
+;;; ListIt 
 ;;;
-
-; ListIt 1
-;   - only entries (url, title and score) in the database
-;   - no users
-
-; ListIt 2
-;   - users added
-
-; Things to consider:
-;  - creation of new user accounts
-;  - log in / log out
-;  - only authenticated users can vote
-
 
 ;;;
 ;;; MODEL
@@ -36,6 +23,7 @@
  top               ; top entries (highest scores)
  page              ; page of entries
  newest            ; page of entries, sort order after age
+ popular           ; page of entries, sort order after score (i.e. vote count)
  from-site         ; entries from given site
  url-in-db?        ; is url already in database?
  recent?           ; is the entry less than a month old?
@@ -85,11 +73,12 @@
 
 ; If you have a PostgreSQL database running, then
 ; you can use that too.
-                   
-#;(define db
-    (postgresql-connect #:database "listit"
-                        #:user     "listit"
-                        #:password "listit"))
+
+(def foo "listit")
+;; (define db
+;;     (postgresql-connect #:database foo
+;;                         #:user     foo
+;;                         #:password foo))
 
 ; Note: Don't put the password in the code.
 ;       Store it in an environment variable (set it with setenv in a terminal),
@@ -114,14 +103,16 @@
    [url            string/f   #:contract non-empty-string?]
    [site           string/f]
    [score          integer/f]
-   [created        datetime/f]
+   [created-at     datetime/f]
    [submitter      id/f]       ; user id
    [submitter-name string/f]   ; redundant, but saves database access
    ))
 
-(define (create-entry #:title title #:url url #:score score
-                      #:created   [created (now)]
-                      #:submitter submitter
+(define (create-entry #:title          title
+                      #:url            url
+                      #:score          score
+                      #:created-at     [created-at (now)]
+                      #:submitter      submitter
                       #:submitter-name submitter-name)
   (def u (string->url url))
   (def site (if u (url-host u) ""))
@@ -130,7 +121,7 @@
               #:url            url
               #:site           site
               #:score          score
-              #:created        created
+              #:created-at     created-at
               #:submitter      submitter
               #:submitter-name submitter-name))
 
@@ -154,12 +145,8 @@
   (def es (entries-with-url url))
   (match es
     ['() #f]
-    [_   (first (sort es datetime>? #:key entry-created))]))
+    [_   (first (sort es datetime>? #:key entry-created-at))]))
 
-(define (recent? e)
-  ; "recent" means within a month
-  (def created (entry-created e))
-  (datetime>? created (-period (now) (period [months 1]))))
 
 
 (define (insert-entry entry)
@@ -177,7 +164,7 @@
 
 (define (~entry e)
   (set! e (get-entry e))
-  (defm (entry _ id title url site score created submitter submitter-name) e)
+  (defm (entry _ id title url site score created-at submitter submitter-name) e)
   (~a id ":'" title "':'" url "':(" site ") " score ":" submitter-name))
 
 
@@ -190,7 +177,7 @@
                       (limit ,n)))])
     e))
 
-(define (page n)
+(define (page n) ; n = page-number
   (for/list ([e (in-entities db
                    (~> (from entry #:as e)
                        (order-by ([e.score #:desc]))
@@ -198,13 +185,40 @@
                        (offset ,(* (PAGE-LIMIT) n))))])
     e))
 
-(define (newest n)
+(define (newest n) ; n = page-number
   (for/list ([e (in-entities db
                    (~> (from entry #:as e)
-                       (order-by ([e.created #:desc]))
+                       (order-by ([e.created-at #:desc]))
                        (limit  ,(PAGE-LIMIT))
                        (offset ,(* (PAGE-LIMIT) n))))])
     e))
+
+(def 1year     (sql-interval   1 0 0 0 0 0 0))
+(def 1month    (sql-interval   0 1 0 0 0 0 0))
+(def 1week     (sql-interval   0 0 7 0 0 0 0))
+(def 1day      (sql-interval   0 0 1 0 0 0 0))
+(def 1eternity (sql-interval 100 0 0 0 0 0 0))
+
+(define (popular period n) ; n = page-number counting from 0
+  ; period is one of the strings: day, week, month, all
+  (def p (match period ["day" 1day] ["week" 1week] ["month" 1month] ["year" 1year] [_ 1eternity]))  
+  (def query
+    (match (dbsystem-name (connection-dbsystem db))
+      ['sqlite3    (~> (from entry #:as e)
+                       (where (>= e.created-at (DateTime "Now" "LocalTime" "-1 Day")))
+                       (order-by ([e.score #:desc]))                       
+                       (limit  ,(PAGE-LIMIT))
+                       (offset ,(* (PAGE-LIMIT) n)))]
+      ['postgresql (~> (from entry #:as e)
+                       (where (> e.created-at (- (now) (cast ,p interval))))
+                       (order-by ([e.score #:desc]))                       
+                       (limit  ,(PAGE-LIMIT))
+                       (offset ,(* (PAGE-LIMIT) n)))]
+      [n (error (~a n " is not supported"))]))
+    
+  (for/list ([e (in-entities db query)])
+    e))
+
 
 (define (entries-with-url url-str)
   (for/list ([e (in-entities db
@@ -231,6 +245,11 @@
                       (order-by ([e.score #:desc]))))])
     e))
 
+(define (recent? e)
+  ; "recent" means within a month
+  (def created-at (entry-created-at e))
+  (datetime>? created-at (-period (now) (period [months 1]))))
+
 
 ;;;
 ;;; User
@@ -244,10 +263,10 @@
    [key             string/f] ; key derived from password and salt 
    [email           string/f]
    [email-validated boolean/f]
-   [created         datetime/f]
+   [created-at      datetime/f]
    [about           string/f]   ; text written by the user
    [send-digest     integer/f   #:contract digest-value?]  
-   [last-digest     datetime/f]))
+   [last-digest-at  datetime/f]))
 
 (define <digest:no>     0)
 (define <digest:hourly> 1)
@@ -303,10 +322,10 @@
                     #:key             (derive-key password) ; also embeds salt
                     #:email           email
                     #:email-validated #f
-                    #:created         (now)
+                    #:created-at      (now)
                     #:about           ""
                     #:send-digest     <digest:no>
-                    #:last-digest     (now)))
+                    #:last-digest-at  (now)))
   (with-handlers ([exn:fail:sql?
                    (λ (e)
                      (raise (exn:fail:user:bad
@@ -339,7 +358,8 @@
 (define-schema vote
   ([id              id/f        #:primary-key #:auto-increment]
    [user-id         id/f]
-   [entry-id        id/f]))
+   [entry-id        id/f]
+   [ip              string/f]))
 
 ; Note: We don't store whether it is an up or down vote.
 ;       Don't change your mind. Also ... I intend to remove down votes.
@@ -355,8 +375,8 @@
 (define (insert-vote vote)
   (insert! db vote))
 
-(define (create-vote user-id entry-id)
-  (make-vote #:user-id user-id #:entry-id entry-id))
+(define (create-vote user-id entry-id ip)
+  (make-vote #:user-id user-id #:entry-id entry-id #:ip ip))
 
 (define (list-votes)
   (for/list ([v (in-entities db (from vote #:as v))])
@@ -399,6 +419,7 @@
     (with-handlers ([exn? void])
       (drop-table! db s))))
 
+; (drop-tables)
 (create-tables)
 
 (when (= (count-entries) 0)

@@ -121,6 +121,10 @@
 (define-bidi-match-expander/coercions vote-direction-arg
   vote-direction? values vote-direction?  values)
 
+(define (popular-period? x) (member x (list "day" "week" "month" "year" "all")))
+(define-bidi-match-expander/coercions popular-period-arg
+  popular-period? values popular-period?  values)
+
 (define (dispatch req)
   (current-request req)
   (def login-status (get-login-status req))
@@ -139,8 +143,11 @@
    [("")                                          (λ (req) (do-home req 0))]                 
    [("home")                                      (λ (req) (do-home req 0))]
    [("home" "page" (integer-arg))                 do-home]
-   [("new")                                       (λ (req)   (do-home req 0 #:new #t))]
-   [("new" "page" (integer-arg))                  (λ (req n) (do-home req n #:new #t))]
+   [("new")                                       (λ (req)   (do-new req 0 ))]
+   [("new" "page" (integer-arg))                  do-new]
+   [("popular")                                   (λ (req)   (do-popular req "week" 0))]
+   [("popular" (popular-period-arg)
+               "page" (integer-arg))              do-popular]
    [("user" (string-arg))                         do-user]
    [("from" (integer-arg))                        do-from]  ; entries from same site as entry-id
    [("about")                                     do-about]                
@@ -174,14 +181,33 @@
   (def result (html-about-page))
   (response/output (λ (out) (display result out))))
 
-(define (do-home req page-number #:new [new #f])
-  (def entries (if new
-                   (newest page-number)
-                   (page   page-number)))
-  ; rank irrelevant for displaying new entries
-  (def rank-of-first-entry (+ 1 (* page-number (PAGE-LIMIT))))
-  (def result (html-home-page page-number rank-of-first-entry entries #:new new))
+
+; The home, new and popular pages are very similar.
+; They display a list of entries in some order.
+; We have one function in the view  html-list-page,
+; that handle all three cases.
+
+(define (do-home req page-number)
+  (def first-rank  (+ 1 (* page-number (PAGE-LIMIT))))
+  (def entries     (newest page-number)) ; this will like change at some point
+  (def result      (html-list-page "home" page-number first-rank entries))
   (response/output (λ (out) (display result out))))
+
+(define (do-new req page-number)
+  (def first-rank (+ 1 (* page-number (PAGE-LIMIT))))
+  (def entries    (newest page-number))
+  (def result     (html-list-page "new" page-number first-rank entries))
+  (response/output (λ (out) (display result out))))
+
+(define (do-popular req period page-number)
+  (displayln (list 'do-popular period page-number))
+  (def first-rank  (+ 1 (* page-number (PAGE-LIMIT))))
+  (def entries     (popular (string->symbol period) page-number))
+  (def result      (html-list-page "popular" page-number first-rank entries
+                                      #:period period))
+  (response/output (λ (out) (display result out))))
+
+
 
 (define (do-user req username)
   (def u (get-user username))
@@ -262,23 +288,24 @@
 
 
 (define (do-vote req direction entry-id page-number) ; an arrow was clicked on the given page
-  (def u   (current-user))
-  (def uid (user-id u))
-  (def eid entry-id)
-  (define (register-vote) (insert-vote (create-vote uid eid)))
   (match (current-login-status)
-    ; logged-in
-    [#t  (cond
-           [(has-user-voted-on-entry? uid eid)
-            'ignore-him]
-           [else
-            (match direction
-              ["up"   (when eid (increase-score eid) (register-vote))]
-              ["down" (when eid (decrease-score eid) (register-vote))]    
-              [else    'do-nothing])])
-            ; to make sure a reload doesn't resubmit, we redirect to the front page
-         (redirect-to (~a "/home/page/" page-number) temporarily)]
-
+    [#t  ; logged-in
+     (def u   (current-user))
+     (def uid (user-id u))
+     (def eid entry-id)
+     (def ip  (request-client-ip req))
+     (define (register-vote) (insert-vote (create-vote uid eid ip)))
+     (cond
+       [(has-user-voted-on-entry? uid eid)
+        'ignore-him]
+       [else
+        (match direction
+          ["up"   (when eid (increase-score eid) (register-vote))]
+          ["down" (when eid (decrease-score eid) (register-vote))]    
+          [else    'do-nothing])])
+     ; to make sure a reload doesn't resubmit, we redirect to the front page
+     (redirect-to (~a "/home/page/" page-number) temporarily)]
+    
      ; logged-out
      [_ (redirect-to "/login-to-vote" temporarily)]))
 
@@ -335,5 +362,4 @@
          (λ (out) (display result out)))])]
     [else
      (redirect-to "/" temporarily)]))
-
 

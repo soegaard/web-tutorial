@@ -62,7 +62,8 @@
 ;; The control needs the following functions:
 
 (provide html-about-page
-         html-home-page
+         ; html-home-page -> replaced by html-list-page
+         html-list-page  ; handles  home, new and popular
          html-submit-page
          html-login-page
          html-user-page
@@ -143,15 +144,21 @@
   (def page (~a (current-page)))
   (def Page (string-titlecase page))
   @navbar[class: "navbar-nav-scroll"
-           @img[class: "racket-logo" src: white-racket-logo
-                 alt:  "racket logo" width: "40px" height: "40px"]
+           @a[href: "/"
+               @img[class: "racket-logo" src: white-racket-logo
+                     alt:  "racket logo" width: "40px" height: "40px"]]
            @nbsp @nbsp
            @ul[class: "navbar-nav bd-navbar-nav flex-row mr-auto"
-                @li[class: (~a "nav-item" (active 'home))
-                     @a[class: "nav-link" href: "/"]{Home}]
-                @span[class: "navbar-text"]{ | }
+                ; Until home has a sort order that combines age and score,
+                ; home sorts the same way as new. No need to display it.
+                ;; @li[class: (~a "nav-item" (active 'home))
+                ;;      @a[class: "nav-link" href: "/"]{Home}]
+                ;; @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'new))
                      @a[class: "nav-link" href: "/new"]{New}]
+                @span[class: "navbar-text"]{ | }
+                @li[class: (~a "nav-item" (active 'popular))
+                     @a[class: "nav-link" href: "/popular"]{Popular}]
                 @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'submit))
                      @a[class: "nav-link" href: "/submit"]{Submit}]
@@ -160,7 +167,7 @@
                      @a[class: "nav-link" href: "/about"]{About}]
                 ; If the page isn't one of the always-feaured pages,
                 ; we need to show it
-                @(unless (member page '("home" "new" "submit" "about"))
+                @(unless (member page '("home" "new" "popular" "submit" "about"))
                    (list @span[class: "navbar-text"]{ | }
                          @li[class: "nav-item active"
                               @a[class: "nav-link" href: (~a "/" page)]{@Page}]))]
@@ -317,7 +324,7 @@
   
   (def u user)
   (def name    (user-username u))
-  (def created (~t (user-created u) "E, MMMM d, y"))
+  (def created (~t (user-created-at u) "E, MMMM d, y"))
 
   (html-page
    #:title "List it! - User"
@@ -497,67 +504,30 @@
 ; is the sorting order. The keyword argument #:new? determines,
 ; whether we are on the home page or the new page.
 
-(define (html-home-page page-number rank-of-first-entry entries #:new [new #f])
-  (def name (if new "new" "home"))
-  (def Name (if new "New" "Home"))
-  (current-page name)  
+(define (html-list-page name page-number first-rank entries
+                        #:period [period ""])
+  (current-page name)
+  ; name is one of "home", "new" or "popular"
+  (def Name      (string-titlecase name)) ; "Home", "New" or "Popular"
+  (def next      (+ page-number 1))
+  (def more-url  (match name
+                   ["new"     (~a "/new/page/"  next)]
+                   ["home"    (~a "/home/page/" next)]
+                   ["popular" (~a "/popular/"   period "/page/" next)]
+                   [_ (error 'html-list-page "expected home, new or popular.")]))
   (html-page
    #:title (~a "List it! - " Name)
    #:body
    @main-column{
-     @(html-list-of-entries page-number rank-of-first-entry entries)
+     @(html-list-of-entries page-number first-rank entries
+                            #:voting?  #t
+                            #:ranking? #t)
      @nav[aria-label: "more"
        @ul[class: "pagination"
          @li[class: "page-item"
               @a[ ; class: "page-link"
-                  href: (~a "/" name "/page/" (+ page-number 1))]{More}]]]
+                  href: more-url]{More}]]]
      @p{ }}))
-
-
-;;; List of entries
-
-(define (html-list-of-entries page-number rank-of-first-entry entries)
-  (def pn page-number)
-  (define logged-in? (current-login-status))
-  (define (entries->rows entries)
-    (cond [(and page-number rank-of-first-entry)
-           (for/list ([e entries] [rank (in-naturals rank-of-first-entry)])
-             (entry->table-row e rank))]
-          [else
-           (for/list ([e entries])
-             (entry->table-row e #f))]))
-  (define (entry->table-row e rank)
-    (defm (struct* entry ([title the-title] [url the-url] [site site] [score the-score] [id id]
-                                            [submitter-name submitter-name])) e)
-    (def  form-name (~a "arrowform" id))
-    @div[class: "entry-row row"
-          ; hide rank with `d-none` if needed (element is kept to keep size)
-          @span[class: @~a{rank-col  col-auto @(if rank "" "d-none")}]{ @(or rank "0") }
-          ; to teach new users, we display the voting arrows, if they are logged-out
-          @(when rank
-             @span[class: "arrow-col col-auto row" 
-               @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
-                 @input[name: "arrow" type: "hidden"] 
-                   @span[class: "updowngrid"
-                    @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'chevron-up))
-                    @(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
-          @span[class: "titlescore-col col"
-            @span[class: "titlescore"
-              @span[@a[href: the-url]{ @the-title }
-                      " (" @a[href: (~a "/from/" id)]{@site} ") "]
-              @span[class: "score"]{@the-score points by
-                     @span[class: "submitter-name"
-                            @a[href: (~a "/user/" submitter-name) ]{ @submitter-name }]}]]]) 
-                                                       
-  @span[class: "entries container-fluid"]{
-    @(entries->rows entries)})
-
-
-(define (html-a-submit form-name action text #:class [class ""])  
-  @a[class: class href: @~a{javascript:
-                            document.@|form-name|.action='@|action|';
-                            document.@|form-name|.submit(); 
-                            }]{@text})
 
 ;;;
 ;;; From
@@ -569,8 +539,54 @@
    #:title "List it! - From"
    #:body
    @main-column{
-     @(html-list-of-entries #f #f entries)
+     @(html-list-of-entries 0 1 entries #:voting? #f #:ranking? #t)
      @p{ }}))
+
+
+;;; List of entries
+
+(define (html-list-of-entries page-number first-rank entries
+                              #:voting?  [voting?  #f]
+                              #:ranking? [ranking? #f])                              
+  (def pn page-number)
+  (define logged-in? (current-login-status))
+
+  (define (entries->rows entries)
+    (for/list ([e entries] [rank (in-naturals first-rank)])
+      (entry->table-row e rank)))
+  
+  (define (entry->table-row e rank)
+    (defm (struct* entry ([title the-title] [url the-url] [site site] [score the-score] [id id]
+                                            [submitter-name submitter-name])) e)
+    (def  form-name (~a "arrowform" id))
+    @div[class: "entry-row row"
+          ; hide rank with `d-none` if needed (element is kept to keep size)
+          @span[class: @~a{rank-col  col-auto @(if ranking? "" "d-none")}]{ @(or rank "0") }
+          ; to teach new users, we display the voting arrows, even if they are logged-out
+          @(when voting?
+             @span[class: "arrow-col col-auto row" 
+               @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
+                 @input[name: "arrow" type: "hidden"] 
+                   @span[class: "updowngrid"
+                    @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'chevron-up))
+                    @(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
+          @span[class: "titlescore-col col"
+            @span[class: "titlescore"
+              @span[@a[href: the-url]{ @the-title } " (" @a[href: (~a "/from/" id)]{@site} ") "]
+              @span[class: "score"]{@the-score points by
+                     @span[class: "submitter-name"
+                            @a[href: (~a "/user/" submitter-name) ]{ @submitter-name }]}]]])
+                                                       
+  @span[class: "entries container-fluid"]{
+    @(entries->rows entries)})
+
+
+(define (html-a-submit form-name action text #:class [class ""])  
+  @a[class: class href: @~a{javascript:
+                            document.@|form-name|.action='@|action|';
+                            document.@|form-name|.submit(); 
+                            }]{@text})
+
 
 ;;;
 ;;; Login Page

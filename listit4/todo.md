@@ -16,12 +16,17 @@
 + vote   : stay on same page after voting
 + submit : only allow resubmission after a month has passed
 + new    : show recently submitted entries
++ vote   : register ip of voter
 
 ## Must Do
 
-- home   : remove down votes
-- login  : input validate
-- home   : the sort order should consider both votes and age
+- home    : show newest
+- popular : sorted after votes, last day, week, month, year
+- mail    : email confirmation
+- other   : favicon
+- home    : remove down votes
+- login   : input validate
+- home    : the sort order should consider both votes and age
 
 # Like To Do
 - profile : order digest of new submisstions pr mail
@@ -29,7 +34,15 @@
 - tag     : show only entries with given tag
 - admin   : manually add tags
 
+- login   : google login
 - search  : users / sites / tags
 - user    : show more information
 - admin   : statistics
 - user    : show about text
+- feed    : rss or atom 
+- other   : karma
+
+## Other
+
+- populate database with lots of entries
+- find a suitable name
