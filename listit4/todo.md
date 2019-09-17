@@ -17,10 +17,10 @@
 + submit : only allow resubmission after a month has passed
 + new    : show recently submitted entries
 + vote   : register ip of voter
++ home    : show newest
 
 ## Must Do
 
-- home    : show newest
 - popular : sorted after votes, last day, week, month, year
 - mail    : email confirmation
 - other   : favicon

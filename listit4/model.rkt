@@ -74,7 +74,7 @@
 ; If you have a PostgreSQL database running, then
 ; you can use that too.
 
-(def foo "listit")
+;; (def foo "listit")
 ;; (define db
 ;;     (postgresql-connect #:database foo
 ;;                         #:user     foo
