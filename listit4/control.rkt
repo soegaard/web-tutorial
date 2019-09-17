@@ -135,6 +135,8 @@
   
   (parameterize ([current-login-status (and user login-status)]
                  [current-user         (and login-status user)])
+    (displayln (url->string (request-uri req)))
+
     (dispatch-on-url req)))
 
 (defv (dispatch-on-url generate-url)

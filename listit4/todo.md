@@ -18,17 +18,17 @@
 + new    : show recently submitted entries
 + vote   : register ip of voter
 + home    : show newest
++ other   : favicon
 
 ## Must Do
 
 - popular : sorted after votes, last day, week, month, year
 - mail    : email confirmation
-- other   : favicon
 - home    : remove down votes
 - login   : input validate
 - home    : the sort order should consider both votes and age
 
-# Like To Do
+# Like To D
 - profile : order digest of new submisstions pr mail
 - profile : change about text
 - tag     : show only entries with given tag
