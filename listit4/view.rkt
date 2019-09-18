@@ -235,6 +235,7 @@
     .mw600px        { max-width: 600px; }
     body            { font-size: 1rem; margin: 2rem; }
     a               { display: inline; }
+    .vote-icon      { font-size: 1.5rem; color: var(--purple); margin-bottom: 0.2rem;}
     .uppernav       { background-color: var(--purple);}
     .main_column    { background-color: #f6f6ef; }
 
@@ -579,8 +580,8 @@
                @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
                  @input[name: "arrow" type: "hidden"] 
                    @span[class: "updowngrid"
-                    @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'chevron-up))
-                    @(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
+                    @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'thumbs-up))
+                   #;(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
           @span[class: "titlescore-col col"
             @span[class: "titlescore"
               @span[@a[href: the-url]{ @the-title } " (" @a[href: (~a "/from/" id)]{@site} ") "]
@@ -647,4 +648,4 @@
 ; Icons are from FontAwesome. Used for the up/down arrows.
 
 (define (html-icon name)
-  @i[class: (~a "fas fa-" name)])
+  @i[class: (~a "vote-icon fas fa-" name)])

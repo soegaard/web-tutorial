@@ -17,14 +17,17 @@
 + submit : only allow resubmission after a month has passed
 + new    : show recently submitted entries
 + vote   : register ip of voter
-+ home    : show newest
-+ other   : favicon
++ home   : show newest
++ other  : favicon
++ other  : images   in files-root/static/   (stop using imgur)
++ other  : favicons in files-root/favicons/ 
++ home    : remove down votes / change icon to thumbs-up
+
 
 ## Must Do
 
 - popular : sorted after votes, last day, week, month, year
 - mail    : email confirmation
-- home    : remove down votes
 - login   : input validate
 
 # Like To Do
