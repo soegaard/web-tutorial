@@ -96,12 +96,14 @@
 ;;; External Resources
 ;;;
 
-(define html5shiv-js   "https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js")
-(define respond-js     "https://oss.maxcdn.com/respond/1.4.2/respond.min.js")
 (define fontawesome-js "https://kit.fontawesome.com/d1076de1c9.js")
 
-(define racket-logo       "https://i.imgur.com/WI0rFIg.png")
-(define white-racket-logo "https://i.imgur.com/HnF66fo.png")
+;;;
+;;; Internal Resources
+;;;
+
+(define racket-logo       "/static/color-racket-logo.png")
+(define white-racket-logo "/static/white-racket-logo.png")
 
 ;;;
 ;;; STYLING
@@ -276,30 +278,30 @@
     <!-- The above 3 meta tags *must* come first in the head;
          any other head content must come *after* these tags -->
 
-    <title>@title </title>
-
-    <!-- Favicons -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#6f42c1">
-    <meta name="msapplication-TileColor" content="#9f00a7">
-    <meta name="theme-color" content="#6f42c1">
-
-    <!-- Bootstrap -->
+    <!-- Bootstrap (CSS Styling Framework) -->
     <link rel="stylesheet" 
           href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" 
           integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" 
           crossorigin="anonymous">
+     
+    <!-- Favicons (site logo in tab bar) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16x16.png">
+    <link rel="mask-icon" href="/favicons/safari-pinned-tab.svg" color="#6f42c1">
+    <meta name="msapplication-TileColor" content="#9f00a7">
+    <meta name="theme-color" content="#6f42c1">
 
-    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-    @script[html5shiv-js]
-    @script[respond-js]
-    <![endif]-->
+    
+    <!-- FontAweseome (for icons) -->
     @script[fontawesome-js]
+
+    <!-- Our Stylesheet -->
+    <!-- TODO: Put this in an external file -->
     <style> @|stylesheet| </style>
+
+    <!-- Title -->
+    <title>@title </title>
   </head>
   <body>
       @the-body

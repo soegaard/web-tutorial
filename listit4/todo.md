@@ -26,10 +26,10 @@
 - mail    : email confirmation
 - home    : remove down votes
 - login   : input validate
-- home    : the sort order should consider both votes and age
 
-# Like To D
-- profile : order digest of new submisstions pr mail
+# Like To Do
+- home    : the sort order should consider both votes and age
+- profile : order digest of new submissions pr mail
 - profile : change about text
 - tag     : show only entries with given tag
 - admin   : manually add tags
