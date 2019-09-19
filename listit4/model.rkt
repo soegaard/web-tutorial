@@ -13,11 +13,12 @@
 (provide
  ;; Entry
  (except-out (schema-out entry) make-entry)
- create-entry
+ register-entry
+ ; create-entry
  get-entry
  get-entry/url     ; get youngest entry with a given url
  ~entry            ; format entry as a string
- insert-entry      ; insert entry into database 
+ ; insert-entry      ; insert entry into database 
  increase-score    ; increase score of entry
  decrease-score    ; decrease score of entry
  top               ; top entries (highest scores)
@@ -36,8 +37,9 @@
  authenticate-user
 
  ;; Votes
- insert-vote
- create-vote
+ register-vote
+ ; insert-vote
+ ; create-vote
  has-user-voted-on-entry?)
 
 
@@ -147,8 +149,6 @@
     ['() #f]
     [_   (first (sort es datetime>? #:key entry-created-at))]))
 
-
-
 (define (insert-entry entry)
   (insert! db entry))
 
@@ -159,6 +159,17 @@
 (define (decrease-score entry)
   (def e (get-entry entry))
   (update! db (update-entry-score e (λ (score) (- score 1)))))
+
+
+(define (register-entry #:title title #:url url #:user u #:ip ip)
+  (def eid (insert-entry
+            (create-entry #:title title
+                          #:url url
+                          #:score 10
+                          #:submitter (user-id u)
+                          #:submitter-name (user-username u))))
+  (insert-vote (create-vote (user-id u) eid ip)))
+
 
 ;;; FORMATTING
 
@@ -201,15 +212,23 @@
 
 (define (popular period n) ; n = page-number counting from 0
   ; period is one of the strings: day, week, month, all
-  (def p (match period ["day" 1day] ["week" 1week] ["month" 1month] ["year" 1year] [_ 1eternity]))  
   (def query
     (match (dbsystem-name (connection-dbsystem db))
-      ['sqlite3    (~> (from entry #:as e)
-                       (where (>= e.created-at (DateTime "Now" "LocalTime" "-1 Day")))
+      ['sqlite3    (def p (match period
+                            ["day"   "-1 day"]
+                            ["week"  "-7 days"]
+                            ["month" "-1 month"]                            
+                            ["year"  "-1 year"]
+                            [_       "-100 years"]))
+                   (~> (from entry #:as e)
+                       (where (>= e.created-at (DateTime "Now" "LocalTime" ,p)))
                        (order-by ([e.score #:desc]))                       
                        (limit  ,(PAGE-LIMIT))
                        (offset ,(* (PAGE-LIMIT) n)))]
-      ['postgresql (~> (from entry #:as e)
+      ['postgresql   (def p (match period
+                              ["day" 1day] ["week" 1week] ["month" 1month]
+                              ["year" 1year] [_ 1eternity]))
+                     (~> (from entry #:as e)
                        (where (> e.created-at (- (now) (cast ,p interval))))
                        (order-by ([e.score #:desc]))                       
                        (limit  ,(PAGE-LIMIT))
@@ -371,6 +390,25 @@
                              (where (and (= v.user-id  ,u)
                                          (= v.entry-id ,e)))
                              (select (count *)))))))
+
+
+(define (register-vote #:user u #:entry-id eid #:ip ip #:dir d)
+  ; A logged-in user can vote on an entry, unless:
+  ;   - he already voted on that entry
+  ;   - he submitted it him-self
+  ; When an entry is submitted, it is automatically given a vote,
+  ; so we don't need to check self-submission.
+  (cond
+    [(not (has-user-voted-on-entry? u eid))
+     (insert-vote (make-vote #:user-id  (user-id u)
+                             #:entry-id eid
+                             #:ip       ip))
+     (match d
+       ['up   (increase-score eid)]
+       ['down (decrease-score eid)])
+     #t]
+    [else #f]))
+
 
 (define (insert-vote vote)
   (insert! db vote))
