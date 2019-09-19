@@ -150,9 +150,9 @@
    [("")                                          (λ (req) (do-home req 0))]                 
    [("home")                                      (λ (req) (do-home req 0))]
    [("home" "page" (integer-arg))                 do-home]
-   [("new")                                       (λ (req)   (do-new req 0 ))]
+   [("new")                                       (λ (req) (do-new req 0 ))]
    [("new" "page" (integer-arg))                  do-new]
-   [("popular")                                   (λ (req)   (do-popular req "week" 0))]
+   [("popular")                                   (λ (req) (do-popular req "week" 0))]
    [("popular" (popular-period-arg)
                "page" (integer-arg))              do-popular]
    [("user" (string-arg))                         do-user]
@@ -218,8 +218,8 @@
   (displayln (list 'do-popular period page-number))
   (def first-rank  (+ 1 (* page-number (PAGE-LIMIT))))
   (def entries     (popular (string->symbol period) page-number))
-  (def result      (html-list-page "popular" page-number first-rank entries
-                                      #:period period))
+
+  (def result      (html-popular-page page-number first-rank entries period))
   (response/output (λ (out) (display result out))))
 
 
@@ -305,19 +305,15 @@
 (define (do-vote req direction entry-id page-number) ; an arrow was clicked on the given page
   (match (current-login-status)
     [#t  ; logged-in
-     (def u   (current-user))
-     (def uid (user-id u))
-     (def eid entry-id)
-     (def ip  (request-client-ip req))
-     (define (register-vote) (insert-vote (create-vote uid eid ip)))
-     (cond
-       [(has-user-voted-on-entry? uid eid)
-        'ignore-him]
-       [else
-        (match direction
-          ["up"   (when eid (increase-score eid) (register-vote))]
-          ["down" (when eid (decrease-score eid) (register-vote))]    
-          [else    'do-nothing])])
+     (define (register dir)
+       (register-vote #:user     (current-user)
+                      #:entry-id entry-id
+                      #:ip       (request-client-ip req)
+                      #:dir      dir))
+     (match direction
+       ["up"   (register 'up)]
+       ["down" (register 'down)]    
+       [else    'do-nothing])
      ; to make sure a reload doesn't resubmit, we redirect to the front page
      (redirect-to (~a "/home/page/" page-number) temporarily)]
     
@@ -341,6 +337,7 @@
   ; We get here when the form on the "Submit new entry" page is submitted.
   (def url   (get-binding #"url"   bytes->string/utf-8))
   (def title (get-binding #"title" bytes->string/utf-8))
+  (def ip    (request-client-ip req))
   
   ; If the submitted url and title are valid, we will insert an
   ; entry in the database and redirect to the database.
@@ -363,11 +360,8 @@
            ; entry already in database and recently
            ; if we had comments, we would redirect to the comments page
            (redirect-to "/resubmission")]
-          [else            
-           (insert-entry (create-entry #:title title #:url url
-                                       #:score 10
-                                       #:submitter (user-id u)
-                                       #:submitter-name (user-username u)))
+          [else
+           (register-entry #:title title #:url url #:user u #:ip ip)
            ; to make sure a reload doesn't resubmit, we redirect to the front page
            (redirect-to "/" temporarily)])]
        [else

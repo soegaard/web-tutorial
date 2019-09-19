@@ -19,21 +19,21 @@
 + vote   : register ip of voter
 + home   : show newest
 + other  : favicon
-+ other  : images   in files-root/static/   (stop using imgur)
++ other  : images   in files-root/static/     (stopped using imgur)
 + other  : favicons in files-root/favicons/ 
-+ home    : remove down votes / change icon to thumbs-up
++ home   : remove down votes / change icon to thumbs-up
++ popular : sorted after votes, last day, week, month, year
 
 
 ## Must Do
 
-- popular : sorted after votes, last day, week, month, year
 - mail    : email confirmation
 - login   : input validate
 
 # Like To Do
 - home    : the sort order should consider both votes and age
 - profile : order digest of new submissions pr mail
-- profile : change about text
+- profile : change the "about" text
 - tag     : show only entries with given tag
 - admin   : manually add tags
 

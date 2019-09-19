@@ -63,7 +63,8 @@
 
 (provide html-about-page
          ; html-home-page -> replaced by html-list-page
-         html-list-page  ; handles  home, new and popular
+         html-list-page  ; handles  home, new
+         html-popular-page
          html-submit-page
          html-login-page
          html-user-page
@@ -167,8 +168,7 @@
                 @span[class: "navbar-text"]{ | }
                 @li[class: (~a "nav-item" (active 'about))
                      @a[class: "nav-link" href: "/about"]{About}]
-                ; If the page isn't one of the always-feaured pages,
-                ; we need to show it
+                ; If the page isn't one of the always-feaured pages, we need to show it
                 @(unless (member page '("home" "new" "popular" "submit" "about"))
                    (list @span[class: "navbar-text"]{ | }
                          @li[class: "nav-item active"
@@ -232,7 +232,8 @@
 ; border: 1px solid red
 
 (define stylesheet "
-    .mw600px        { max-width: 600px; }
+    .mw600px        { max-width: 600px; } 
+    .mb-very-small  { margin-bottom: 0.1rem; }
     body            { font-size: 1rem; margin: 2rem; }
     a               { display: inline; }
     .vote-icon      { font-size: 1.5rem; color: var(--purple); margin-bottom: 0.2rem;}
@@ -470,7 +471,7 @@
 
 
 ;;;
-;;; The Submit-new-entry page
+;;; The Submit Page (submit new entry)
 ;;;
 
 ;; The page has two input fields: one for the url and one for the title.
@@ -517,7 +518,8 @@
 ; whether we are on the home page or the new page.
 
 (define (html-list-page name page-number first-rank entries
-                        #:period [period ""])
+                        #:message [message #f]
+                        #:period  [period ""])
   (current-page name)
   ; name is one of "home", "new" or "popular"
   (def Name      (string-titlecase name)) ; "Home", "New" or "Popular"
@@ -531,6 +533,7 @@
    #:title (~a "List it! - " Name)
    #:body
    @main-column{
+     @(when message (list @br @message @br))
      @(html-list-of-entries page-number first-rank entries
                             #:voting?  #t
                             #:ranking? #t)
@@ -540,6 +543,31 @@
               @a[ ; class: "page-link"
                   href: more-url]{More}]]]
      @p{ }}))
+
+(define (html-popular-page page-number first-rank entries period)
+  (define (url period)    (~a "/popular/" period "/page/" 0))
+  (define (make-a p txt)
+    (def same? (equal? p period))
+    @a[class: @~a{dropdown-item @(if same? "active" "")}
+        href: (if same? "#" (url p))]{@txt})
+
+  (def msg @span{The most popular entries for the last:
+                 @div[class: "btn-group mb-very-small"
+                   @button[class: "btn btn-outline-primary btn-sm dropdown-toggle"
+                            type=: "button"
+                            data-toggle: "dropdown"
+                            aria-haspopup: "true"
+                            aria-expanded: "false"]{@period}
+                   @div[class: "dropdown-menu"
+                         (make-a "day"   "day")
+                         (make-a "week"  "week" )
+                         (make-a "month" "month")
+                         (make-a "year"  "year")
+                         (make-a "all"   "century")]]})
+  
+  (html-list-page "popular" page-number first-rank entries
+                  #:message msg
+                  #:period period))
 
 ;;;
 ;;; From
