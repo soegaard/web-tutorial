@@ -205,21 +205,23 @@
 (define (do-home req page-number)
   (def first-rank  (+ 1 (* page-number (PAGE-LIMIT))))
   (def entries     (newest page-number)) ; this will like change at some point
-  (def result      (html-list-page "home" page-number first-rank entries))
+  (def votes      (user-votes-on-newest (current-user) page-number))
+  (def result      (html-list-page "home" page-number first-rank entries #:votes votes))
   (response/output (λ (out) (display result out))))
 
 (define (do-new req page-number)
   (def first-rank (+ 1 (* page-number (PAGE-LIMIT))))
   (def entries    (newest page-number))
-  (def result     (html-list-page "new" page-number first-rank entries))
+  (def votes      (user-votes-on-newest (current-user) page-number))
+  (def result     (html-list-page "new" page-number first-rank entries #:votes votes))
   (response/output (λ (out) (display result out))))
 
 (define (do-popular req period page-number)
   (displayln (list 'do-popular period page-number))
   (def first-rank  (+ 1 (* page-number (PAGE-LIMIT))))
   (def entries     (popular (string->symbol period) page-number))
-
-  (def result      (html-popular-page page-number first-rank entries period))
+  (def votes       (user-votes-on-popular (current-user) period page-number))
+  (def result      (html-popular-page page-number first-rank entries period votes))
   (response/output (λ (out) (display result out))))
 
 

@@ -249,6 +249,8 @@
       .titlescore-col   { vertical-align: middle; text-align: left; display: inline-grid;}
         .titlescore     {                         text-align: left; display: inline-grid; margin: auto auto auto 0px;}
       .submitter-name a { color: black; }
+
+    .updowngrid.hidden {visibility: hidden; }
 ")
 
 
@@ -532,7 +534,8 @@
 
 (define (html-list-page name page-number first-rank entries
                         #:message [message #f]
-                        #:period  [period ""])
+                        #:period  [period ""]
+                        #:votes   [votes #f])
   (current-page name)
   ; name is one of "home", "new" or "popular"
   (def Name      (string-titlecase name)) ; "Home", "New" or "Popular"
@@ -549,7 +552,8 @@
      @(when message (list @br @message @br))
      @(html-list-of-entries page-number first-rank entries
                             #:voting?  #t
-                            #:ranking? #t)
+                            #:ranking? #t
+                            #:votes    votes)
      @nav[aria-label: "more"
        @ul[class: "pagination"
          @li[class: "page-item"
@@ -557,7 +561,7 @@
                   href: more-url]{More}]]]
      @p{ }}))
 
-(define (html-popular-page page-number first-rank entries period)
+(define (html-popular-page page-number first-rank entries period votes)
   (define (url period)    (~a "/popular/" period "/page/" 0))
   (define (make-a p txt)
     (def same? (equal? p period))
@@ -580,7 +584,8 @@
   
   (html-list-page "popular" page-number first-rank entries
                   #:message msg
-                  #:period period))
+                  #:period period
+                  #:votes votes))
 
 ;;;
 ;;; From
@@ -600,10 +605,19 @@
 
 (define (html-list-of-entries page-number first-rank entries
                               #:voting?  [voting?  #f]
-                              #:ranking? [ranking? #f])                              
+                              #:ranking? [ranking? #f]
+                              #:votes    [votes    #f])
+  
   (def pn page-number)
   (define logged-in? (current-login-status))
 
+  ; if votes is present it contains a list of entry ids of the
+  ; entries the user already voted on - don't hide them
+  ; (don't omit them - that breaks alignment)
+  (define (show-thumbs-up? eid)
+    (or (not votes)
+        (and votes (not (memv eid votes)))))
+  
   (define (entries->rows entries)
     (for/list ([e entries] [rank (in-naturals first-rank)])
       (entry->table-row e rank)))
@@ -620,9 +634,9 @@
              @span[class: "arrow-col col-auto row" 
                @form[class: "arrows" name: form-name action: @~a{vote/@id} method: "post"
                  @input[name: "arrow" type: "hidden"] 
-                   @span[class: "updowngrid"
-                    @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'thumbs-up))
-                   #;(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
+                   @span[class: (~a "updowngrid" (if (show-thumbs-up? id)  "" " hidden"))
+                     @(html-a-submit form-name (~a "/vote/up/"   id "/" pn) (html-icon 'thumbs-up))
+                     #;(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
           @span[class: "titlescore-col col"
             @span[class: "titlescore"
               @span[@a[href: the-url]{ @the-title } " (" @a[href: (~a "/from/" id)]{@site} ") "]

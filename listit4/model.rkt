@@ -40,6 +40,9 @@
  register-vote
  ; insert-vote
  ; create-vote
+ user-votes-on-popular ; list of entry-ids already voted on
+ user-votes-on-newest
+
  has-user-voted-on-entry?)
 
 
@@ -85,6 +88,17 @@
 ; Note: Don't put the password in the code.
 ;       Store it in an environment variable (set it with setenv in a terminal),
 ;       then use  getenv  to retrieve here.
+
+
+;;;
+;;;
+;;;
+
+; lookups : query -> list
+;   run query and return the results as a list
+(define (lookups query)
+  (for/list ([v (in-entities db query)])
+    v))
 
 
 ;;;
@@ -182,27 +196,25 @@
 ;;; DATABASE RETRIEVAL
 
 (define (top n)
-  (for/list ([e (in-entities db
-                  (~> (from entry #:as e)
-                      (order-by ([e.score #:desc]))
-                      (limit ,n)))])
-    e))
+  (lookups (~> (from entry #:as e)
+               (order-by ([e.score #:desc]))
+               (limit ,n))))
 
 (define (page n) ; n = page-number
-  (for/list ([e (in-entities db
-                   (~> (from entry #:as e)
-                       (order-by ([e.score #:desc]))
-                       (limit  ,(PAGE-LIMIT))
-                       (offset ,(* (PAGE-LIMIT) n))))])
-    e))
+  (lookups (~> (from entry #:as e)
+               (order-by ([e.score #:desc]))
+               (limit  ,(PAGE-LIMIT))
+               (offset ,(* (PAGE-LIMIT) n)))))
+
+
+(define (query:newest n) ; n = page-number
+  (~> (from entry #:as e)
+      (order-by ([e.created-at #:desc]))
+      (limit  ,(PAGE-LIMIT))
+      (offset ,(* (PAGE-LIMIT) n))))
 
 (define (newest n) ; n = page-number
-  (for/list ([e (in-entities db
-                   (~> (from entry #:as e)
-                       (order-by ([e.created-at #:desc]))
-                       (limit  ,(PAGE-LIMIT))
-                       (offset ,(* (PAGE-LIMIT) n))))])
-    e))
+  (lookups (query:newest n)))
 
 (def 1year     (sql-interval   1 0 0 0 0 0 0))
 (def 1month    (sql-interval   0 1 0 0 0 0 0))
@@ -210,7 +222,12 @@
 (def 1day      (sql-interval   0 0 1 0 0 0 0))
 (def 1eternity (sql-interval 100 0 0 0 0 0 0))
 
-(define (popular period n) ; n = page-number counting from 0
+
+(define (popular period n)
+  (def query (query:popular period n))
+  (lookups (query:popular period n)))
+
+(define (query:popular period n) ; n = page-number counting from 0
   ; period is one of the strings: day, week, month, all
   (def query
     (match (dbsystem-name (connection-dbsystem db))
@@ -224,7 +241,12 @@
                        (where (>= e.created-at (DateTime "Now" "LocalTime" ,p)))
                        (order-by ([e.score #:desc]))                       
                        (limit  ,(PAGE-LIMIT))
-                       (offset ,(* (PAGE-LIMIT) n)))]
+                       (offset ,(* (PAGE-LIMIT) n))
+                       ; now we have a page of entries, now add information
+                       ; on which entries the user already voted on
+                       #;(join vote #:as v #:on (and (= v.user-id  ,uid)
+                                                     (= v.entry-id e.id)))
+                       )]
       ['postgresql   (def p (match period
                               ["day" 1day] ["week" 1week] ["month" 1month]
                               ["year" 1year] [_ 1eternity]))
@@ -234,16 +256,12 @@
                        (limit  ,(PAGE-LIMIT))
                        (offset ,(* (PAGE-LIMIT) n)))]
       [n (error (~a n " is not supported"))]))
-    
-  (for/list ([e (in-entities db query)])
-    e))
+  query)
 
 
 (define (entries-with-url url-str)
-  (for/list ([e (in-entities db
-                  (~> (from entry #:as e)
-                      (where (= url ,url-str))))])
-    e))
+  (lookups (~> (from entry #:as e)
+               (where (= url ,url-str)))))
 
 (define (count-entries-with-url url-str)
   (lookup db (~> (from entry #:as e)
@@ -423,6 +441,27 @@
 (define (count-votes)
   (lookup db (~> (from vote #:as v)
                  (select (count *)))))
+
+
+(define (user-votes-on-entries user/id entries-query)
+  (def uid (or/integer user/id (user-id user/id)))
+  (lookups
+   (~> (from (subquery entries-query) #:as e)
+       (join vote #:as v #:on (= v.entry-id e.id))
+       (where (= v.user-id ,uid))                                             
+       (select e.id))))
+
+(define (user-votes-on-popular user/id period page )
+  (def uid (or/integer user/id (and (user? user/id) (user-id user/id))))
+  (or (and uid
+           (user-votes-on-entries uid (query:popular period page)))
+      '())) ; anonymous has not voted
+
+(define (user-votes-on-newest user/id page)
+  (def uid (or/integer user/id (and (user? user/id) (user-id user/id))))
+  (or (and uid
+           (user-votes-on-entries uid (query:newest page)))
+      '())) ; anonymous has not voted
 
 
 
