@@ -150,7 +150,7 @@
   (def Page (string-titlecase page))
   @navbar[class: "navbar-nav-scroll"
            @a[href: "/"
-               @img[class: "racket-logo" src: white-logo-racket-stories
+               @img[class: "racket-logo mr-4" src: white-logo-racket-stories
                      alt:  "racket logo" height: "40px"]]           
            @nbsp @nbsp
            @ul[class: "navbar-nav bd-navbar-nav flex-row mr-auto"
