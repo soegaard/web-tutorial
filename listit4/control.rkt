@@ -155,7 +155,8 @@
    [("popular")                                   (λ (req) (do-popular req "week" 0))]
    [("popular" (popular-period-arg)
                "page" (integer-arg))              do-popular]
-   [("user" (string-arg))                         do-user]
+   [("user"    (string-arg))                      do-user]    ; show other user
+   [("profile")                                   do-profile] ; show own user profile
    [("from" (integer-arg))                        do-from]  ; entries from same site as entry-id
    [("about")                                     do-about]                
    [("login")                                     do-login/create-account] 
@@ -169,6 +170,7 @@
    
    [("login-to-vote")                             do-login-to-vote]
    [("login-to-submit")                           do-login-to-submit]
+   [("login-to-profile")                          do-login-to-profile]
    [("resubmission")                              do-resubmission]
 
    ; form submissions
@@ -176,6 +178,7 @@
    [("entry-submitted")          #:method "post"  do-entry-submitted]
    [("login-submitted")          #:method "post"  do-login-submitted]
    [("create-account-submitted") #:method "post"  do-create-account-submitted]
+   [("profile-submitted")        #:method "post"  do-profile-submitted]
    ; no else clause means the next dispatch ought to serve other files
 
 
@@ -231,6 +234,16 @@
   (def result (html-user-page u))
   (response/output (λ (out) (display result out))))
 
+(define (do-profile req)
+  (match (current-login-status)
+    [#t  ; logged-in
+     (def u (current-user))
+     (def result (html-profile-page u))
+     (response/output (λ (out) (display result out)))]
+    [_
+     (redirect-to "/login-to-profile" temporarily)]))
+
+
 (define (do-from req entry-id)
   (def e (get-entry entry-id)) ; #f if not found
   (def s (and e (entry-site e)))
@@ -245,6 +258,10 @@
 
 (define (do-login-to-submit req)
   (parameterize ([current-banner-message "Login to submit."])
+    (do-login/create-account req)))
+
+(define (do-login-to-profile req)
+  (parameterize ([current-banner-message "Login to change your profile."])
     (do-login/create-account req)))
 
 (define (do-resubmission req)
@@ -286,6 +303,17 @@
                   (redirect-to "/login" temporarily)])]
     [else      (displayln (list 'do-submit-login 'u u 'p p))
                (redirect-to "/login" temporarily)]))
+
+(define (do-profile-submitted req)
+  (def a  (get-binding #"about" bytes->string/utf-8))
+  (def u  (current-user))
+  (displayln 'do-profile-submitted)
+  (displayln (list 'u u 'a a))
+  (cond
+    [(and u a) (change-user-about u a)
+               (redirect-to "/profile" temporarily)]
+    [u         (redirect-to "/profile" temporarily)] ; show error?
+    [else      (redirect-to "/login-to-profile" temporarily)]))
 
 (define (do-create-account-submitted req)
   (def u (bytes->string/utf-8 (get-binding #"username")))

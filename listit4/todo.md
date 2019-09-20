@@ -24,6 +24,7 @@
 + home    : remove down votes / change icon to thumbs-up
 + popular : sorted after votes, last day, week, month, year
 + general : show thumbs-up only if the user hasn't voted previously
++ profile : user can change "about" text
 
 ## Must Do
 
@@ -31,9 +32,9 @@
 - signup  : feedback from input validation
 
 # Like To Do
-- home    : the sort order should consider both votes and age
+- home    : the sort order should consider both votes and age 
+            (need more entries to make sense)
 - profile : order digest of new submissions pr mail
-- profile : change the "about" text
 - tag     : show only entries with given tag
 - admin   : manually add tags
 

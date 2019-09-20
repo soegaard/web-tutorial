@@ -35,6 +35,7 @@
  create-user
  get-user
  authenticate-user
+ change-user-about
 
  ;; Votes
  register-vote
@@ -372,6 +373,10 @@
     ; Note: We are not using `username-in-db?` first.
     ;       In theory two different users could register at almost the same time
     (insert-user u)))
+
+(define (change-user-about u a)
+  (update! db (update-user-about u (λ (_) a))))
+
 
 
 (define (authenticate-user username password)

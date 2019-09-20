@@ -68,6 +68,7 @@
          html-submit-page
          html-login-page
          html-user-page
+         html-profile-page
          html-from-page)
 
 
@@ -183,7 +184,7 @@
              @li[class: "nav-item ml-auto"
                   @a[class: "nav-link" href: "/login"]{login}]]]
     [_ @ul[class: "navbar-nav bd-navbar-nav flex-row"
-            @a[class: "nav-link" href: (~a "/user/" name)]{@name}
+            @a[class: "nav-link" href: "/profile"]{@name}
             @span[class: "navbar-text"]{ | }
             ; @a[class: "nav-link" href: "/logout"]{logout}
             @logout-link-form{}
@@ -353,13 +354,42 @@
   (def u user)
   (def name    (user-username u))
   (def created (~t (user-created-at u) "E, MMMM d, y"))
+  (def about   (user-about u))
 
   (html-page
    #:title "List it! - User"
    #:body @main-column{ @h2{User Profile}
                         @p{@(list->table 
                              (list (list "user:"    name)
-                                   (list "created:" created)))}}))
+                                   (list "created:" created)
+                                   (list "about:"   about)))}}))
+
+(define (html-profile-page user)
+  (current-page "profile")
+  
+  (def u user)
+  (def name    (user-username u))
+  (def a       (user-about u))
+  (def about   (if (equal? a "")  "Enter a text to show other users" a))
+  (def created (~t (user-created-at u) "E, MMMM d, y"))
+
+  (html-page
+   #:title "List it! - Profile"
+   #:body @main-column{
+            @h2{User Profile}
+            @p{@(list->table 
+                 (list (list "user:"    name)
+                       (list "created:" created)))}
+                       
+            @form[name: "profile_form" action: "/profile-submitted" method: "post" novalidate: ""]{
+              @input[name: "action" value: "submit" type: "hidden"]
+              @form-group[@label[for: "about"]{About}
+                          @(render-form-input "about" about #f)]
+              @submit-button{Update}}
+
+            @p{}}))
+
+
 ;;;
 ;;; The About Page
 ;;;
