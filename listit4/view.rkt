@@ -104,8 +104,9 @@
 ;;; Internal Resources
 ;;;
 
-(define racket-logo       "/static/color-racket-logo.png")
-(define white-racket-logo "/static/white-racket-logo.png")
+(define racket-logo               "/static/color-racket-logo.png")
+(define white-racket-logo         "/static/white-racket-logo.png")
+(define white-logo-racket-stories "/static/white-logo-racket-stories.svg")
 
 ;;;
 ;;; STYLING
@@ -149,8 +150,8 @@
   (def Page (string-titlecase page))
   @navbar[class: "navbar-nav-scroll"
            @a[href: "/"
-               @img[class: "racket-logo" src: white-racket-logo
-                     alt:  "racket logo" width: "40px" height: "40px"]]
+               @img[class: "racket-logo" src: white-logo-racket-stories
+                     alt:  "racket logo" height: "40px"]]           
            @nbsp @nbsp
            @ul[class: "navbar-nav bd-navbar-nav flex-row mr-auto"
                 ; Until home has a sort order that combines age and score,
