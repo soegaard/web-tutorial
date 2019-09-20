@@ -25,6 +25,7 @@
 + popular : sorted after votes, last day, week, month, year
 + general : show thumbs-up only if the user hasn't voted previously
 + profile : user can change "about" text
++ buy domain : racket-stories.com
 
 ## Must Do
 
@@ -51,7 +52,6 @@
 - populate database with lots of entries
 - find a suitable name
 - does ~> memoize?, if not perhaps memoize query:popular and query:newest
-- buy domain
 - setup server
 - launch
 

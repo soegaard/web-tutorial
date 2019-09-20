@@ -357,7 +357,7 @@
   (def about   (user-about u))
 
   (html-page
-   #:title "List it! - User"
+   #:title "User - Racket Stories"
    #:body @main-column{ @h2{User Profile}
                         @p{@(list->table 
                              (list (list "user:"    name)
@@ -374,7 +374,7 @@
   (def created (~t (user-created-at u) "E, MMMM d, y"))
 
   (html-page
-   #:title "List it! - Profile"
+   #:title "Profile - Racket Stories"
    #:body @main-column{
             @h2{User Profile}
             @p{@(list->table 
@@ -406,7 +406,7 @@
   
   (current-page "about") ; used by navigation-bar to hightlight the current page
   (html-page
-   #:title "List it! - About"
+   #:title "About - Racket Stories"
    #:body
    @main-column{
      @h1{About}
@@ -538,7 +538,7 @@
   (current-page "submit")
   (defm (or (list vu vt) (and vu vt #f)) the-validation)
   (html-page
-   #:title  "List it! - Submit a new entry"
+   #:title  "Submit a new entry - Racket Stories"
    #:body
    @main-column{
      @h2{Submit a new entry}
@@ -576,7 +576,7 @@
                    ["popular" (~a "/popular/"   period "/page/" next)]
                    [_ (error 'html-list-page "expected home, new or popular.")]))
   (html-page
-   #:title (~a "List it! - " Name)
+   #:title (~a Name "- Racket Stories")
    #:body
    @main-column{
      @(when message (list @br @message @br))
@@ -624,7 +624,7 @@
 (define (html-from-page entries)
   (current-page "from")
   (html-page
-   #:title "List it! - From"
+   #:title "From - Racket Stories"
    #:body
    @main-column{
      @(html-list-of-entries 0 1 entries #:voting? #f #:ranking? #t)
@@ -693,7 +693,7 @@
 (define (html-login-page #:validation [the-validation #f])
   (current-page "login")
   (html-page
-   #:title "List it! - Login or create new account"
+   #:title "Login or create new account - Racket Stories"
    #:body
    @main-column[
      @nbsp

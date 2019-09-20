@@ -1,9 +1,5 @@
 #lang racket/base
 ;;;
-;;; ListIt 
-;;;
-
-;;;
 ;;; MODEL
 ;;;
 
@@ -74,13 +70,13 @@
 ; at the end of this file).
 
 (define db
-  (sqlite3-connect #:database "listit-sqlite.db"
+  (sqlite3-connect #:database "racket-stories-sqlite.db"
                    #:mode     'create))
 
 ; If you have a PostgreSQL database running, then
 ; you can use that too.
 
-;; (def foo "listit")
+;; (def foo "racket-stories")
 ;; (define db
 ;;     (postgresql-connect #:database foo
 ;;                         #:user     foo
