@@ -277,6 +277,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="google-signin-client_id" content="racket-stories-1568926163791.apps.googleusercontent.com">
     <!-- The above 3 meta tags *must* come first in the head;
          any other head content must come *after* these tags -->
 
@@ -302,6 +303,10 @@
     <!-- TODO: Put this in an external file -->
     <style> @|stylesheet| </style>
 
+    <!-- Google Sign-In (only needed on login page) -->
+    <!-- Need an authorized domain to test Google Sign-In --> 
+    <!-- <script src="https://apis.google.com/js/platform.js" async defer></script> -->
+
     <!-- Title -->
     <title>@title </title>
   </head>
@@ -318,7 +323,15 @@
             crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
             integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
-            crossorigin="anonymous"></script> 
+            crossorigin="anonymous"></script>
+    <script> function onSignIn(googleUser) {
+               var profile = googleUser.getBasicProfile();
+               console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
+               console.log('Name: ' + profile.getName());
+               console.log('Image URL: ' + profile.getImageUrl());
+               console.log('Email: ' + profile.getEmail()); // This is null if the 'email' scope is not present.
+               }
+    </script>
   </body>
   </html>})
 
@@ -649,6 +662,9 @@
          @label[for: "password"]{Password}
          @form-input[name: "password" type: "password" value: ""]}
        @submit-button{Login}}
+     
+     ; @h2{Sign-In with Google}
+     ; @div[class:"g-signin2" data-onsuccess: "onSignIn"]
 
      @nbsp @br @br
      

@@ -150,7 +150,7 @@
     [_   (first (sort es datetime>? #:key entry-created-at))]))
 
 (define (insert-entry entry)
-  (insert! db entry))
+  (insert-one! db entry))
 
 (define (increase-score entry)
   (def e (get-entry entry))  
@@ -162,13 +162,13 @@
 
 
 (define (register-entry #:title title #:url url #:user u #:ip ip)
-  (def eid (insert-entry
-            (create-entry #:title title
-                          #:url url
-                          #:score 10
-                          #:submitter (user-id u)
-                          #:submitter-name (user-username u))))
-  (insert-vote (create-vote (user-id u) eid ip)))
+  (def e (insert-entry
+          (create-entry #:title title
+                        #:url url
+                        #:score 10
+                        #:submitter (user-id u)
+                        #:submitter-name (user-username u))))
+  (insert-vote (create-vote (user-id u) (entry-id e) ip)))
 
 
 ;;; FORMATTING

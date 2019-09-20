@@ -28,7 +28,7 @@
 ## Must Do
 
 - mail    : email confirmation
-- login   : input validate
+- signup  : feedback from input validation
 
 # Like To Do
 - home    : the sort order should consider both votes and age
