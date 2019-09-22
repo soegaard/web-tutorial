@@ -3,7 +3,7 @@
 
 ;;;
 ;;; Parameters
-;;;
+;;; 
 
 ; The server stores the current request in current-request.
 (define current-request (make-parameter #f))

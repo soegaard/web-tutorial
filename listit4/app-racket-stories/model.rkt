@@ -69,8 +69,9 @@
 ; database is empty, we will populate (see populate-database
 ; at the end of this file).
 
+
 (define db
-  (sqlite3-connect #:database "racket-stories-sqlite.db"
+  (sqlite3-connect #:database "../dbs/racket-stories-sqlite.db"
                    #:mode     'create))
 
 ; If you have a PostgreSQL database running, then
