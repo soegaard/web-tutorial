@@ -47,7 +47,8 @@
 ;;; Dependencies
 ;;;
 
-(require racket/format (except-in racket/list group-by) racket/match racket/sequence racket/string
+(require racket/format (except-in racket/list group-by) racket/match
+         racket/sequence racket/string racket/runtime-path
          net/url openssl/sha1 db deta gregor gregor/period threading
          "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
@@ -69,9 +70,10 @@
 ; database is empty, we will populate (see populate-database
 ; at the end of this file).
 
+(define-runtime-path sqlite-db "../dbs/racket-stories-sqlite.db")
 
 (define db
-  (sqlite3-connect #:database "../dbs/racket-stories-sqlite.db"
+  (sqlite3-connect #:database sqlite-db
                    #:mode     'create))
 
 ; If you have a PostgreSQL database running, then
