@@ -238,6 +238,7 @@
     .mb-very-small  { margin-bottom: 0.1rem; }
     body            { font-size: 1rem; margin: 2rem; }
     a               { display: inline; }
+    a.from          { color: #212529; }
     .vote-icon      { font-size: 1.5rem; color: var(--purple); margin-bottom: 0.2rem;}
     .uppernav       { background-color: var(--purple);}
     .main_column    { background-color: #f6f6ef; }
@@ -670,7 +671,7 @@
                      #;(html-a-submit form-name (~a "/vote/down/" id "/" pn) (html-icon 'chevron-down))]]])
           @span[class: "titlescore-col col"
             @span[class: "titlescore"
-              @span[@a[href: the-url]{ @the-title } " (" @a[href: (~a "/from/" id)]{@site} ") "]
+              @span[@a[href: the-url]{ @the-title } " (" @a[class: "from" href: (~a "/from/" id)]{@site} ") "]
               @span[class: "score"]{@the-score points by
                      @span[class: "submitter-name"
                             @a[href: (~a "/user/" submitter-name) ]{ @submitter-name }]}]]])
