@@ -40,7 +40,17 @@
  user-votes-on-popular ; list of entry-ids already voted on
  user-votes-on-newest
 
- has-user-voted-on-entry?)
+ has-user-voted-on-entry?
+
+ ;; Sessions
+ get-session
+ session-token
+ register-session
+ session-expired?
+ ; session-logged-in? 
+ session-terminate
+ session-user-id
+ )
 
 
 ;;;
@@ -50,9 +60,19 @@
 (require racket/format (except-in racket/list group-by) racket/match
          racket/sequence racket/string racket/runtime-path
          net/url openssl/sha1 db deta gregor gregor/period threading
+         (except-in crypto bytes->hex-string)
          "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
          "user-names.rkt")
+
+
+;;;
+;;; Utilities
+;;;
+
+(define (safe-first xs)
+  (and (pair? xs) (first xs)))
+
 
 ;;;
 ;;; CONFIGURATION
@@ -66,9 +86,9 @@
 ;;;
 
 ; To avoid any database setup, we use a simple sqlite database.
-; The database is stored in a file "list-sqlite.db". If the
-; database is empty, we will populate (see populate-database
-; at the end of this file).
+; The database is stored in a file "racket-stories-sqlite.db".
+; If the database is empty, we will populate (see populate-database
+; at the end of this file). 
 
 (define-runtime-path sqlite-db "../dbs/racket-stories-sqlite.db")
 
@@ -311,14 +331,13 @@
 (define <digest:weekly> 3)
 
 (define (insert-user user)
-  (insert! db user))
+  (insert-one! db user))
 
 (define (count-users)
   (lookup db (~> (from user #:as u)
                  (select (count *)))))
 
 (define (get-user [user #f] #:username [username #f])
-  (displayln (list 'get-user user username))
   (match user
     [(? user? u)     u]
     [(? integer? id) (get-user/id id)]
@@ -377,12 +396,13 @@
   (update! db (update-user-about u (λ (_) a))))
 
 
-
+; authenticate user, return the user on success
 (define (authenticate-user username password)
-  (match (get-user/username username)
+  (def u (get-user/username username))
+  (match u
     [#f (authentication-error "username not in db")]
     [u  (if (verify-password password (user-key u))
-            #t
+            u
             (authentication-error "wrong password"))]))
 
 
@@ -468,6 +488,64 @@
       '())) ; anonymous has not voted
 
 
+;;;
+;;; SESSIONS
+;;;
+
+; When a user successfully logins this fact is recorded as a session.
+; 
+
+(define-schema session
+  ([id             id/f       #:primary-key #:auto-increment]
+   [user-id        integer/f]
+   [token          string/f]
+   [created-at     datetime/f]
+   [expires-at     datetime/f]))
+
+(define (list-sessions)
+  (lookups (from session #:as s)))
+
+
+(define (register-session user/id)
+  (displayln (list 'register-session user/id))
+  (def uid   (or/integer user/id (and (user? user/id) (user-id user/id))))
+  (def token (bytes->hex-string (crypto-random-bytes 16)))
+  (cond
+    [(integer? uid) (def s (make-session #:user-id    uid
+                                         #:token      token
+                                         #:created-at (now)
+                                         #:expires-at (+period (now) (period [years 10]))))
+                    (insert-one! db s)]
+    [else #f]))
+
+(define (get-session token)
+  (match token    
+    [""             #f]
+    [(? string? t)  (def s (get-session/token token))
+                    (and (not (session-expired? s))
+                         s)]
+    [_ #f]))
+
+(define (get-session/token token)
+  (lookup db (~> (from session #:as s)
+                 (where (= s.token ,token)))))
+
+(define (session-expired? session)
+  (datetime>? (now) (session-expires-at session)))
+
+(define (session-belongs-to-user? s u)
+  (= (session-user-id s) (user-id u)))
+
+(define (session-logged-in? s u)
+  (def s0 (get-session/token (session-token s)))
+  (and s0
+       (not (session-expired? s0))
+       (session-belongs-to-user? s0 u)))
+
+(define (session-terminate s u)
+  (when (session-belongs-to-user? s u)
+    (delete! db s)))
+
 
 ;;;
 ;;; DATABASE CREATION
@@ -487,7 +565,7 @@
     (insert-entry (create "Blog - Greg Hendershott" "https://www.greghendershott.com/" 14))
     (insert-entry (create "Blogs that use Frog" "http://stevenrosenberg.net/racket/2018/03/blogs-that-use-frog.html" 12))))
 
-(define schemas '(entry user vote))
+(define schemas '(entry user vote session))
 
 (define (create-tables)
   ; Note: This creates the tables if they don't exist.

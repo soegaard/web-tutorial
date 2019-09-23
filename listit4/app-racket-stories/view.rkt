@@ -180,7 +180,7 @@
 (define (login-status)
   (def u (current-user))
   (def name (and (user? u) (user-username u)))
-  (match (current-login-status)
+  (match u
     [#f @ul[class: "navbar-nav bd-navbar-nav flex-row"
              @li[class: "nav-item ml-auto"
                   @a[class: "nav-link" href: "/login"]{login}]]]
@@ -641,7 +641,7 @@
                               #:votes    [votes    #f])
   
   (def pn page-number)
-  (define logged-in? (current-login-status))
+  (define logged-in? (and (current-user) #t))
 
   ; if votes is present it contains a list of entry ids of the
   ; entries the user already voted on - don't hide them

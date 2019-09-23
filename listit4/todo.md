@@ -26,9 +26,17 @@
 + general : show thumbs-up only if the user hasn't voted previously
 + profile : user can change "about" text
 + buy domain : racket-stories.com
++ cookie  : same site cookie (needed domain)
++ ssl     : certificate using certbot (Let's encrypt)
++ session : add sessions to model, use them to determine if user is logged in
++ cookie  : use secure cookie (needs ssl) on server
++ cookie  : use same cookie on server 
 
 ## Must Do
 
+- ssl     : setup ssl at racket level (is this needed?)
+- daemon  : start racket server as daemon
+- log     : 
 - mail    : email confirmation
 - signup  : feedback from input validation
 

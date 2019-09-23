@@ -54,9 +54,9 @@
 ;;; Cookies
 ;;;
 
-; We are going to store session information (such as login status)
-; on the client in cookies. To make these tamper proof, we need
-; a way to verify, that they haven't been changed by the user.
+; We are going to store session information (the session token)
+; on the client in cookies. To make these tamper proof, we need a way to verify,
+; that they haven't been changed by an attacker (possibly the user).
 
 ; In order to store `authored-seconds&data` we send
 ; `digest&authored-seconds&data` where digest is a
@@ -70,41 +70,87 @@
 (define-runtime-path cookie-salt.bin "cookie-salt.bin")
 (def cookie-salt (make-secret-salt/file cookie-salt.bin))
 
-(define (make-logged-in-cookie)
-  (make-id-cookie "login-status" "in"
-                  #:key        cookie-salt
-                  ; only for http/https (not client side javascript)
-                  #:http-only? #t           
-                  ; #:expires ...
-                  ; #:max-age ...                            
-                  ; #:secure? #t  ; instructs client only to send cookie via https
-                  ))
+(define (ensure-bytes v)
+  (cond
+    [(bytes? v)  v]
+    [(string? v) (string->bytes/utf-8 v)]
+    [else        (error 'ensure-bytes (~a "got: " v))]))
+
+
+
+(define create-id-cookie
+  (case (system-type)
+    ; Assume that we are developing/testing when the
+    ; system type is mac or windows - in which case
+    ; we are not using ssl.    
+    [(macosx windows)
+     ; otherwise we are on the server were ssl is running
+     (λ (name value)
+       (make-id-cookie name value
+                       #:key cookie-salt
+                       #:http-only? #t))]
+    [else
+     (λ (name value)
+       (make-id-cookie name value
+                       #:key cookie-salt
+                       #:domain "racket-stories.com"
+                       ; only for http/https (not client side javascript)
+                       #:http-only? #t
+                       ; secure? means the client only sends cookie via https
+                       #:secure? #t
+                       ; #:expires ...
+                       ; #:max-age ...                            
+                       ))]))
+
+(define (make-session-cookie token)
+  (create-id-cookie "session-token" token))
 
 (define (make-logged-out-cookie)
-  (make-id-cookie "login-status" "out"
-                  #:key cookie-salt
-                  #:http-only? #t))
+  (create-id-cookie "session-token" ""))
 
 
 (define (make-username-cookie username)
-  (make-id-cookie "username" username
-                  #:key        cookie-salt
-                  #:http-only? #t))
+  (create-id-cookie "username" username))
 
-(define (get-cookie-value req name)
-  (request-id-cookie req #:name name #:key  cookie-salt
+(define (get-id-cookie-value req name)
+  (request-id-cookie req #:name name #:key cookie-salt
                      ; #:timeout ...
                      ; #:shelf-life ...
                      ))
 
-(define (get-login-status req)
-  (match (get-cookie-value req "login-status")
-    ["in" #t]
-    [_    #f]))
-                     
 ;;;
 ;;; DISPATCH
 ;;;
+
+; The main entry point to the control is `dispatch`.
+; Dispatch is called by the web-server and receives the current request.
+
+; Before anything else, we check whether the request came from
+; a user that has an session cookie with a session token.
+; If so, we fetch the session from the db (the model checks that
+; the sessions hasn't expired). Such a session implies that the
+; user is logged-in, so we can set the current-user.
+
+; After setting current-login-status and current-user, we
+; continue to `dispatch-on-url` which based on the url
+; decides what happens next.
+
+(define (dispatch req)
+  (current-request req)
+  (def token    (get-id-cookie-value req "session-token"))
+  (def session  (get-session token))
+  (def user     (and session (get-user (session-user-id session))))
+  (displayln (list 'dispatch 'token token 'user (and (user? user)
+                                                     (user-username user))))
+  
+  (parameterize ([current-login-status (and session user #t)] ; todo remove
+                 [current-user         (and session user)])
+    (dispatch-on-url req)))
+
+;;; URL Dispatching
+
+; In order to make some nice routing rules, we need a few utilities
+; in order to define route arguments.
 
 ; from web-server/dispatch/url-patterns
 (define-syntax define-bidi-match-expander/coercions
@@ -127,17 +173,6 @@
 (define-bidi-match-expander/coercions popular-period-arg
   popular-period? values popular-period?  values)
 
-(define (dispatch req)
-  (current-request req)
-  (def login-status (get-login-status req))
-  (def username     (and login-status (get-cookie-value req "username")))
-  (def user         (and username (get-user #:username username)))
-  
-  (parameterize ([current-login-status (and user login-status)]
-                 [current-user         (and login-status user)])
-    (displayln (url->string (request-uri req)))
-
-    (dispatch-on-url req)))
 
 ; (def entry-id-arg    integer-arg)
 ; (def page-number-arg integer-arg)
@@ -179,8 +214,9 @@
    [("login-submitted")          #:method "post"  do-login-submitted]
    [("create-account-submitted") #:method "post"  do-create-account-submitted]
    [("profile-submitted")        #:method "post"  do-profile-submitted]
-   ; no else clause means the next dispatch ought to serve other files
-
+   ; No else clause means the next dispatch ought to serve other files
+   ; -- that is the web-server will then serve files from extra-files-root.
+   ; This means we can't add a catch-all here to see which routes fell through...
 
    ; [("favicons" (string-arg))                     (λ(_ __) (next-dispatcher))]
    #;[else
@@ -194,6 +230,7 @@
 ;;;
 ;;; PAGES
 ;;;
+
 
 (define (do-about req)
   (def result (html-about-page))
@@ -220,7 +257,6 @@
   (response/output (λ (out) (display result out))))
 
 (define (do-popular req period page-number)
-  (displayln (list 'do-popular period page-number))
   (def first-rank  (+ 1 (* page-number (PAGE-LIMIT))))
   (def entries     (popular (string->symbol period) page-number))
   (def votes       (user-votes-on-popular (current-user) period page-number))
@@ -235,11 +271,9 @@
   (response/output (λ (out) (display result out))))
 
 (define (do-profile req)
-  (match (current-login-status)
-    [#t  ; logged-in
-     (def u (current-user))
-     (def result (html-profile-page u))
-     (response/output (λ (out) (display result out)))]
+  (match (current-user)
+    [u (def result (html-profile-page u))
+       (response/output (λ (out) (display result out)))]
     [_
      (redirect-to "/login-to-profile" temporarily)]))
 
@@ -273,42 +307,40 @@
   (response/output (λ (out) (display result out))))
 
 (define (do-logout-submitted req)
-  (displayln "logging out")
-  (def result (html-login-page))
+  (def un (get-binding #"username" bytes->string/utf-8))
+  
   (redirect-to "/" temporarily
                #:headers (map cookie->header
                               (list (make-logged-out-cookie)))))
 
 (define (do-login-submitted req)
-  (displayln 'do-login-submitted)
-  (def u  (get-binding #"username" bytes->string/utf-8))
+  (def un (get-binding #"username" bytes->string/utf-8))
   (def p  (get-binding #"password"))
-  (displayln (list 'u u 'p p))
   (cond
-    [(and u p) (match (authenticate-user u p)
-                 ; On a successful login we generate a logged-in cookie,
-                 ; and redirect to the frontpage.
-                 ; The redirection prevents the form data being submitted
-                 ; twice due to reloads in the browser.
-                 [#t
-                  (displayln (list 'do-submit-login "login ok"))
-                  (redirect-to
-                   "/" temporarily
-                   #:headers (map cookie->header
-                                  (list (make-username-cookie u)
-                                        (make-logged-in-cookie))))]
-                 ; If the login failed, the user must try again.
-                 [(authentication-error msg)                  
-                  (displayln (list 'do-submit-login msg))
-                  (redirect-to "/login" temporarily)])]
-    [else      (displayln (list 'do-submit-login 'u u 'p p))
+    [(and un p)
+     (match (authenticate-user un p) ; returns user on success
+       ; On a successful login we generate a new session token
+       ; and store it in a cookie.
+       ; The redirection prevents the form data being submitted
+       ; twice due to reloads in the browser.
+
+       [(? user? u)
+        (displayln (list 'do-submit-login "login ok"))
+        (def s (register-session u)) ; stores session i db
+        (redirect-to
+         "/" temporarily
+         #:headers (map cookie->header
+                        (list (make-session-cookie (session-token s)))))]
+       ; If the login failed, the user must try again.
+       [(authentication-error msg)                  
+        (displayln (list 'do-submit-login msg))
+        (redirect-to "/login" temporarily)])]
+    [else      (displayln (list 'do-submit-login 'un un 'p p))
                (redirect-to "/login" temporarily)]))
 
 (define (do-profile-submitted req)
   (def a  (get-binding #"about" bytes->string/utf-8))
   (def u  (current-user))
-  (displayln 'do-profile-submitted)
-  (displayln (list 'u u 'a a))
   (cond
     [(and u a) (change-user-about u a)
                (redirect-to "/profile" temporarily)]
@@ -316,54 +348,51 @@
     [else      (redirect-to "/login-to-profile" temporarily)]))
 
 (define (do-create-account-submitted req)
-  (def u (bytes->string/utf-8 (get-binding #"username")))
-  (def p (get-binding #"password"))
-  (def e (bytes->string/utf-8 (get-binding #"email")))
+  (def un (bytes->string/utf-8 (get-binding #"username")))
+  (def p  (get-binding #"password"))
+  (def e  (bytes->string/utf-8 (get-binding #"email")))
   (with-handlers ([exn:fail:user:bad?
                    (λ (e)
                      (def msg (exn-message e))
                      (displayln msg) ; todo: show user
                      (redirect-to "/login" temporarily))])
-    (create-user u p e)
+    (def u (create-user un p e))
+    (def s (register-session u)) ; stores session i db
+    (def t (session-token s))
     (redirect-to "/" temporarily
                  #:headers (map cookie->header
-                                (list (make-username-cookie u)
-                                      (make-logged-in-cookie))))))
-    
+                                (list (make-session-cookie t))))))
 
 
 (define (do-vote req direction entry-id page-number) ; an arrow was clicked on the given page
-  (match (current-login-status)
-    [#t  ; logged-in
-     (define (register dir)
-       (register-vote #:user     (current-user)
-                      #:entry-id entry-id
-                      #:ip       (request-client-ip req)
-                      #:dir      dir))
-     (match direction
-       ["up"   (register 'up)]
-       ["down" (register 'down)]    
-       [else    'do-nothing])
-     ; to make sure a reload doesn't resubmit, we redirect to the front page
-     (redirect-to (~a "/home/page/" page-number) temporarily)]
-    
-     ; logged-out
-     [_ (redirect-to "/login-to-vote" temporarily)]))
+  (match (current-user)
+    [#f (redirect-to "/login-to-vote" temporarily)]    
+    [u  (define (register dir)
+          (register-vote #:user     u
+                         #:entry-id entry-id
+                         #:ip       (request-client-ip req)
+                         #:dir      dir))
+        (match direction
+          ["up"   (register 'up)]
+          ["down" (register 'down)]    
+          [else    'do-nothing])
+        ; to make sure a reload doesn't resubmit, we redirect to the front page
+        (redirect-to (~a "/home/page/" page-number) temporarily)]))
 
 
 (define (do-submit req)
-  (def logged-in? (current-login-status))
-  (cond [logged-in? (def result (html-submit-page))
-                    (response/output (λ (out) (display result out)))]
-        [else       (redirect-to "/login-to-submit" temporarily)]))
+  (match (current-user)
+    [#f (redirect-to "/login-to-submit" temporarily)]
+    [u  (def result (html-submit-page))
+        (response/output (λ (out) (display result out)))]))
 
 ;;;
 ;;; do-submit
 ;;;
 
 (define (do-entry-submitted req)
-  (def logged-in? (current-login-status))
-  (def u          (get-user (current-user)))
+  (def logged-in? (and (current-user) #t))
+  (def u          (current-user))
   ; We get here when the form on the "Submit new entry" page is submitted.
   (def url   (get-binding #"url"   bytes->string/utf-8))
   (def title (get-binding #"title" bytes->string/utf-8))
@@ -401,4 +430,3 @@
          (λ (out) (display result out)))])]
     [else
      (redirect-to "/" temporarily)]))
-
