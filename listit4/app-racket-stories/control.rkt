@@ -78,6 +78,7 @@
 
 
 
+
 (define create-id-cookie
   (case (system-type)
     ; Assume that we are developing/testing when the
@@ -88,7 +89,8 @@
      (λ (name value)
        (make-id-cookie name value
                        #:key cookie-salt
-                       #:http-only? #t))]
+                       #:http-only? #t
+                       #:extension "SameSite=Strict"))]
     [else
      (λ (name value)
        (make-id-cookie name value
@@ -98,6 +100,7 @@
                        #:http-only? #t
                        ; secure? means the client only sends cookie via https
                        #:secure? #t
+                       #:extension "SameSite=Strict"
                        ; #:expires ...
                        ; #:max-age ...                            
                        ))]))
