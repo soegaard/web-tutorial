@@ -146,8 +146,9 @@
   (displayln (list 'dispatch 'token token 'user (and (user? user)
                                                      (user-username user))))
   
-  (parameterize ([current-login-status (and session user #t)] ; todo remove
-                 [current-user         (and session user)])
+  (parameterize ([current-login-status   (and session user #t)] ; todo remove
+                 [current-user           (and session user)]
+                 [current-banner-message "Work in progress. Site has not launched yet."])
     (dispatch-on-url req)))
 
 ;;; URL Dispatching

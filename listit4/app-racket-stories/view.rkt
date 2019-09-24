@@ -177,6 +177,10 @@
                               @a[class: "nav-link" href: (~a "/" page)]{@Page}]))]
            @(login-status)])
 
+(define the-footer
+  @footer[@center{@span[class: "text-muted"]{Jens Axel Søgaard @br jensaxel@"@"soegaard.net}}])
+
+
 (define (login-status)
   (def u (current-user))
   (def name (and (user? u) (user-username u)))
@@ -317,6 +321,7 @@
   </head>
   <body>
       @the-body
+      @(~x the-footer)
       <!-- Include all compiled plugins (below), or include individual files as needed -->
       <!-- jQuery first, then Popper.js, then Bootstrap JS -->
       <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->

@@ -30,7 +30,7 @@
 + ssl     : certificate using certbot (Let's encrypt)
 + session : add sessions to model, use them to determine if user is logged in
 + cookie  : use secure cookie (needs ssl) on server
-+ cookie  : use same cookie on server 
++ cookie  : use samesite cookies 
 
 ## Must Do
 
