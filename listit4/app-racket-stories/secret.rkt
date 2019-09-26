@@ -5,7 +5,7 @@
 
 ; This file contains secrets.
 
-; Since the source is publicly available the secrets needs to be
+; Since the source is publicly available the secrets need to be
 ; encrypted in the source code. At runtime the keys are decrypted
 ; using a key stored in the environment.
 
