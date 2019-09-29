@@ -9,6 +9,11 @@
 ; encrypted in the source code. At runtime the keys are decrypted
 ; using a key stored in the environment.
 
+; Alternatives:
+;   Store the keys in the environment (environment variables or files).
+;   The "envy" package can be used to handle environment variables:
+;      https://lexi-lambda.github.io/envy/envy.html
+
 (provide github-client-secret) ; corresponds to github-client-id
 
 ;;;
@@ -74,7 +79,9 @@
 ; To authenticate users with Github our app has been given
 ; a client-id and client-secret, so we can identify ourselves
 ; to Github. (In this scenario our app is the client).
-; The client-secret must only be sent between us and Github.
+; In other words this secret is shared between us and Github.
+
+; See 
 
 (define github-client-secret
   (aes-decrypt

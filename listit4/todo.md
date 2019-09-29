@@ -27,20 +27,27 @@
 + profile : user can change "about" text
 + buy domain : racket-stories.com
 + cookie  : same site cookie (needed domain)
-+ ssl     : certificate using certbot (Let's encrypt)
++ ssl     : certificate using certbot (Let's encrypt) [2]
 + session : add sessions to model, use them to determine if user is logged in
 + cookie  : use secure cookie (needs ssl) on server
 + cookie  : use samesite cookies 
++ daemon  : start racket server as daemon
+            (use systemd on Ubuntu, see [1a,1b] )
++ ssl     : ~~setup ssl at racket level~~ (not needed)
++ github  : allow users to login with github 
++ profile : show github information if present
 
 ## Must Do
 
-- ssl     : setup ssl at racket level (is this needed?)
-- daemon  : start racket server as daemon
+- github  : use `state` header when authenticating 
+- user    : show github information if present
 - log     : 
 - mail    : email confirmation
 - signup  : feedback from input validation
+- form    : one-time forms 
 
 # Like To Do
+- vote    : no reload on voting (i.e. use client side javascript)
 - home    : the sort order should consider both votes and age 
             (need more entries to make sense)
 - profile : order digest of new submissions pr mail
@@ -64,4 +71,13 @@
 - launch
 
 
+References
+==========
+[1a] https://www.mail-archive.com/racket-users@googlegroups.com/msg39197.html
+[1b] https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files
 
+
+
+session-expires-at: contract violation
+  expected: session?
+  given: #f

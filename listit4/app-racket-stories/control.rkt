@@ -12,9 +12,10 @@
 
 ;; Imports
 
-(require (for-syntax racket/base)
+(require (for-syntax racket/base)         
          racket/format
          racket/match
+         racket/port
          racket/promise
          racket/runtime-path
          web-server/dispatch/extend
@@ -25,10 +26,14 @@
          web-server/http/id-cookie ; authenticated cookies
          web-server/dispatchers/dispatch-files
          web-server/dispatchers/dispatch
+         web-server/http/request-structs
+         net/http-client
+         net/uri-codec
+         json crypto
          ; "config.rkt"
          "def.rkt" "exn.rkt" "parameters.rkt" "structs.rkt"
-         "validation.rkt"
-         "model.rkt" "view.rkt")
+         "validation.rkt" "github.rkt"
+         "model.rkt" "view.rkt" "secret.rkt")
 
 ;;;
 ;;; Utils
@@ -200,17 +205,19 @@
    [("about")                                     do-about]                
    [("login")                                     do-login/create-account] 
    [("submit")                                    do-submit]               ; new entry page
-   
+
    ; actions
    ;   only recognize up-votes - use the next line if you need both
    [("vote" "up" (integer-arg) (integer-arg)) #:method "post"  (λ (req e p) (do-vote req "up" e p))]
    ; [("vote" "up" (entry-id-arg) (page-number-arg)) #:method "post"  (λ (reg e p) (do-vote "up" e p))]
    ; [("vote" (vote-direction-arg) (integer-arg) (integer-arg)) #:method "post"  do-vote]
-   
+
+   ; these redirect to other pages (and show a banner at the top)
    [("login-to-vote")                             do-login-to-vote]
    [("login-to-submit")                           do-login-to-submit]
    [("login-to-profile")                          do-login-to-profile]
    [("resubmission")                              do-resubmission]
+   [("associate-github")                          do-associate-github]
 
    ; form submissions
    [("logout-submitted")         #:method "post"  do-logout-submitted] ; logout, then show front page
@@ -218,6 +225,12 @@
    [("login-submitted")          #:method "post"  do-login-submitted]
    [("create-account-submitted") #:method "post"  do-create-account-submitted]
    [("profile-submitted")        #:method "post"  do-profile-submitted]
+
+   [("github-login")                              do-github-login]    ; initiate login (by user)
+   [("github-callback")       #:method "post"     do-github-callback] ; callback       (by github)
+   [("github-callback")                           do-github-callback]
+
+   
    ; No else clause means the next dispatch ought to serve other files
    ; -- that is the web-server will then serve files from extra-files-root.
    ; This means we can't add a catch-all here to see which routes fell through...
@@ -271,12 +284,13 @@
 
 (define (do-user req username)
   (def u (get-user username))
-  (def result (html-user-page u))
+  (def result (html-user-page u #:github-user (and u (get-github-user/user u))))
   (response/output (λ (out) (display result out))))
 
 (define (do-profile req)
   (match (current-user)
-    [u (def result (html-profile-page u))
+    [u (def gu (get-github-user/user u))
+       (def result (html-profile-page u #:github-user gu))
        (response/output (λ (out) (display result out)))]
     [_
      (redirect-to "/login-to-profile" temporarily)]))
@@ -305,6 +319,11 @@
 (define (do-resubmission req)
   (parameterize ([current-banner-message "Your submission was submitted recently by another user."])
     (do-home req 0)))
+
+(define (do-associate-github req)
+  (parameterize ([current-banner-message "To login with Github, you need to link your accounts."])
+    (do-login/create-account req)))
+
 
 (define (do-login/create-account req)
   (def result (html-login-page))
@@ -341,6 +360,130 @@
         (redirect-to "/login" temporarily)])]
     [else      (displayln (list 'do-submit-login 'un un 'p p))
                (redirect-to "/login" temporarily)]))
+; 0. User goes to:
+;      https://racket-stories/gtihub-login
+; 1. Which redirects to:
+;      https://github.com/login/oauth/authorize?login=soegaard&client_id=ec150ed77da7c0f796ec
+;    where the client_id indentifies racket-stories.com for github.
+; 2. After login, the user is redirected by Github to:
+;       https://racket-stories.com/github-callback?code=xxxxxxxxx
+; 3. We post the code to Github, and gets an access token.
+;    Use the access token to get user information.
+;    And then we answer the request from 2.
+
+; References:
+;   https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/
+;   Nice diagram:
+;   https://www.vertabelo.com/blog/how-to-store-authentication-data-in-a-database-part-4-implementing-the-login-with-facebook-button-in-python/
+
+(define (do-github-login req)  
+  (def our-state (get-new-github-state))
+  (def github-action-url
+    (~a "https://github.com/login/oauth/authorize?client_id=ec150ed77da7c0f796ec"
+        "&state=" our-state))
+  (displayln "-- our state --")
+  (displayln our-state)
+  (redirect-to github-action-url))
+
+
+; todo: send and check state to prevent cross-site attack
+(define (do-github-callback req)
+  ; We get here after a succesful login on github.
+  ; We get a `code`, which we will use to get an access token.
+  
+  (def client-id      github-client-id)
+  (def client-secret  github-client-secret)
+  (def code           (get-binding #"code"))                        ; used to get access token
+  (def redirect-uri   "https://racket-stories.com/github-callback") ; needs to be the registered callback
+  (def state          (get-binding #"state"))                       ; needs to be the same we sent out
+  
+  (def (str x) (bytes->string/utf-8 x))
+  (def out-headers  (list "Content-Type: application/x-www-form-urlencoded"))
+  
+  ; we need to send POST the following information to github
+  ; in order to get an access token back
+  (def data
+    (alist->form-urlencoded
+     (list (cons 'client_id     (str client-id))
+           (cons 'client_secret (str github-client-secret))
+           (cons 'code          (str code))
+           (cons 'redirect_uri  redirect-uri)
+           (cons 'state         (str state)))))
+
+  (displayln "-- received state --")
+  (displayln state)
+
+  (cond
+    [code (defv (status headers in)
+            (http-sendrecv "github.com"
+                           "/login/oauth/access_token"
+                           #:ssl? #t
+                           ; #:port port	 
+                           #:version "1.1"
+                           #:method "POST" 
+                           #:headers out-headers	 
+                           #:data data	 
+                           #:content-decode '()))
+          (displayln "-- token received -- headers --")
+          (displayln (list 'headers headers 'status status 'in in))
+          (displayln "-- token received -- headers --")
+          (define result (port->string in))
+          (write result) (newline)
+
+          (def state (get-binding #"state"))
+          (displayln (list 'state state))
+          (cond
+            ; check that we get our state back again
+            [(valid-github-state? (str state))
+             ; we expect the result to have the form:
+             ;   "access_token=xxxx&scope=&token_type=bearer"
+             (match (regexp-match #rx"access_token=(.*)&scope=(.*)&token_type=(.*)" result)
+               [(list all token scope type)
+                ; Now we have the token, we can get the identity (and more)
+                (defv (status headers in)
+                  (http-sendrecv "api.github.com" "/user"
+                                 #:ssl? #t
+                                 #:version "1.1"
+                                 #:method "GET" 
+                                 #:headers (list (~a "Authorization: token " token))
+                                 ; #:data data	 
+                                 #:content-decode '()))
+                (displayln "-- user -- headers --")
+                (displayln (list 'headers headers 'status status 'in in))
+                (displayln "-- user --")
+                (define result (port->string in))
+                (write result)
+                (newline)
+                (def ht (string->jsexpr result))
+                (displayln "-- user ht--")
+                (write ht) (newline)
+                
+                (def u (current-user)) ; might be #f
+                (def s (login-github-user u ht))
+                (cond
+                  ; login succeeded
+                  [s     (redirect-to
+                          "/" temporarily
+                          #:headers (map cookie->header
+                                         (list (make-session-cookie (session-token s)))))]
+                  [else (redirect-to "/associate-github")])])]
+            [else
+             ; the state and our-state were different (man in the middle attack?)
+             (displayln "-- state and our-state are different --")
+             (redirect-to "https://racket-stories.com/" temporarily)])]
+    [else
+     (displayln "-- no code? --")
+     (redirect-to "https://racket-stories.com/" temporarily)]))
+
+
+(define (do-github-access-token-received req)
+  (displayln 'do-github-access-token-received)
+  ; We get here after sending the `code` to github.
+  (def access-token (get-binding #"access_token"))
+  (def token-type   (get-binding #"token_type"))
+  (response/output
+   (λ (out) (displayln (list 'token access-token 'token-type token-type)))))
+
 
 (define (do-profile-submitted req)
   (def a  (get-binding #"about" bytes->string/utf-8))

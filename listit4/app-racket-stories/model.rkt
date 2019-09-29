@@ -33,6 +33,14 @@
  authenticate-user
  change-user-about
 
+ ;; Github users and state
+ (except-out (schema-out github-user) make-github-user)
+ login-github-user
+ get-github-user/user
+ 
+ get-new-github-state ; return string with a new random string
+ valid-github-state?  ; was the input a valid string?
+
  ;; Votes
  register-vote
  ; insert-vote
@@ -60,6 +68,7 @@
 (require racket/format (except-in racket/list group-by) racket/match
          racket/sequence racket/string racket/runtime-path
          net/url openssl/sha1 db deta gregor gregor/period threading
+         json
          (except-in crypto bytes->hex-string)
          "def.rkt" "exn.rkt" "structs.rkt"
          "authentication.rkt"
@@ -317,7 +326,7 @@
 (define-schema user
   ([id              id/f        #:primary-key #:auto-increment]
    [username        string/f    #:unique #:contract non-empty-string?]
-   [key             string/f] ; key derived from password and salt 
+   [key             string/f] ; key derived from password and salt
    [email           string/f]
    [email-validated boolean/f]
    [created-at      datetime/f]
@@ -405,6 +414,140 @@
             u
             (authentication-error "wrong password"))]))
 
+;;;
+;;; Github
+;;; 
+
+(define-schema github-user
+  ([id         id/f        #:primary-key #:auto-increment]
+   [user-id    integer/f]            ; racket-stories user-id   
+   [github-id  integer/f   #:unique] ; github user id
+   [login      string/f    #:unique] ; github login (username)
+   [real-name  string/f]             
+   [email      string/f]
+   [github-url string/f]
+   [avatar-url string/f]
+   [blog-url   string/f]))
+
+; To prevent man-in-the-middle attacks, we attach a state
+; to each github login. When we get a code back from Github,
+; we need to check that the received state is one we sent out.
+(define-schema github-state
+  ([state          string/f]))
+
+;; State Related
+
+(define (get-new-github-state)
+  (define new-state (bytes->hex-string (crypto-random-bytes 16)))
+  (insert-one! db (make-github-state #:state new-state))
+  new-state)
+
+(define (valid-github-state? state) ; string -> boolean
+  ; the state is valid, if it is in the database
+  ; if so it is removed, so it can't be reused
+  ; if not, it wasn't valid
+
+  ; we delete the state (and count the number of deleted rows)
+  (def result (query db (delete (~> (from github-state #:as s)
+                                    (where (= s.state ,state))))))
+  
+  (match (assq 'affected-rows (simple-result-info result))
+    [(cons _ n) (not (zero? n))]
+    [_ #f]))
+
+
+;; User Related
+         
+(define (insert-github-user github-user)
+  (insert-one! db github-user))
+
+(define (count-github-users)
+  (lookup db (~> (from github-user #:as gu)
+                 (select (count *)))))
+
+(define (create-github-user user-id github-ht)
+  (define (get n [convert values] [default ""])
+    (convert (hash-ref github-ht n default)))
+
+  (def gu (make-github-user #:user-id    user-id
+                            #:github-id  (get 'id values 0)                            
+                            #:login      (get 'login)
+                            #:real-name  (get 'name)
+                            #:email      (get 'email)
+                            #:github-url (get 'html_url)
+                            #:avatar-url (get 'avatar_url)
+                            #:blog-url   (get 'blog_url)))
+  
+  (with-handlers ([exn:fail:sql?
+                   (λ (e)
+                     (raise (exn:fail:user:bad
+                             "likely: github id or github login in use"
+                             (current-continuation-marks))))])
+    (insert-github-user gu)))
+
+
+(define (get-github-user/user u)
+  (get-github-user/user-id (user-id u)))
+
+(define (get-github-user/user-id uid)
+  (lookup db (~> (from github-user #:as gu) (where (= gu.user-id ,uid)))))
+
+(define (get-github-user/github-id gid)
+  (lookup db (~> (from github-user #:as gu)
+                 (where (= gu.github-id ,gid)))))
+
+(define (get-github-user/github-login login)
+  (lookup db (~> (from user #:as u)
+                 (where (= login ,login)))))
+
+(define (get-user/github-id gid)
+  (def gu (get-github-user/github-id gid))
+  (and gu (get-user/id (github-user-user-id gu))))
+
+
+(define (list-github-users)
+  (lookups (from github-user #:as u)))
+
+(define (link-user-and-github-user u gu)
+  (update! db (update-github-user-user-id gu (λ (_) (user-id u)))))
+  
+
+(define (login-github-user u ht)
+  ; 1. If the user is logged (using a password) we know his user-id, so
+  ; 1a. if the github-user is present
+  ;         register session  (the control must return a cookie with the session token)
+  ; 1b  if the github-user is not present
+  ;         link the github-user and the user.
+  ;         register session  (and send cookie back)
+
+  ; 2. If the user is not logged in,
+  ; 2a.  if the the github-user is linked to a user,
+  ;         register sesstion  (and send cookie back)
+  ; 2b.  if the github is not linked, then
+  ;         tell user he needs to make a normal user first
+
+  ; Get the github user (if present)
+  (def github-id (hash-ref ht 'id #f))
+  (def gu        (and github-id
+                      (get-github-user/github-id github-id)))
+  
+  (cond
+    [(and u gu)  (cond
+                   [(= (user-id u) (github-user-user-id gu))
+                    (register-session u)]
+                   [else
+                    ; this github account was previously used with
+                    ; another racket-stories account
+                    (link-user-and-github-user u gu)
+                    (register-session u)])]
+    [u           (create-github-user (user-id u) ht)                 
+                 (register-session u)]
+    [gu          (def u (get-user/id (github-user-user-id gu)))
+                 (cond
+                   [u    (register-session u)]
+                   [else (error 'internal "a github user exists without an user")])]
+    [else        #f]))
+  
 
 ;;;
 ;;; VOTES
@@ -565,7 +708,26 @@
     (insert-entry (create "Blog - Greg Hendershott" "https://www.greghendershott.com/" 14))
     (insert-entry (create "Blogs that use Frog" "http://stevenrosenberg.net/racket/2018/03/blogs-that-use-frog.html" 12))))
 
-(define schemas '(entry user vote session))
+(define (populate-github-user)
+  (def ht (string->jsexpr
+#<<HERE
+ {
+  "login": "foo",
+  "id": 461763,
+  "avatar_url": "https://avatars2.githubusercontent.com/u/461735?v=4",
+  "html_url": "https://github.com/foo",
+  "name": "Foo Bar Baz",
+  "blog": "http://www.foo.com",
+  "email": "foo@foo.com"
+}
+HERE
+))
+  (when (= (count-github-users) 0)
+    (create-github-user 1 ht)))
+
+
+
+(define schemas '(entry user vote session github-user github-state))
 
 (define (create-tables)
   ; Note: This creates the tables if they don't exist.
@@ -578,11 +740,14 @@
     (with-handlers ([exn? void])
       (drop-table! db s))))
 
+
 ; (drop-tables)
+
 (create-tables)
 
-(when (= (count-entries) 0)
-  (populate-database))
+(populate-database)    ; for testing
+(populate-github-user) ; for testing
+
 
 ;;;
 ;;; Things to try in the repl

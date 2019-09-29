@@ -69,7 +69,8 @@
          html-login-page
          html-user-page
          html-profile-page
-         html-from-page)
+         html-from-page
+         html-associate-github-page)
 
 
 ;; Dependencies
@@ -107,6 +108,7 @@
 (define racket-logo               "/static/color-racket-logo.png")
 (define white-racket-logo         "/static/white-racket-logo.png")
 (define white-logo-racket-stories "/static/white-logo-racket-stories.svg")
+(define bootstrap-social          "/static/bootstrap-social-gh-pages/bootstrap-social.css")
 
 ;;;
 ;;; STYLING
@@ -133,8 +135,20 @@
            (list @p{}
                  @div[class: "alert alert-warning" role: "alert"
                        (current-banner-message)]))
-        @div[class: "container-fluid main_column" style
+        @div[class: "container-fluid main_column"
               @xs]])
+
+(define (main-column/no-color . xs)
+  @div[class: "container"
+        @navigation-bar{}
+        @(when (current-banner-message)
+           (list @p{}
+                 @div[class: "alert alert-warning" role: "alert"
+                       (current-banner-message)]))
+        @div[class: "container-fluid"
+              @xs]])
+
+
 
 
 ; navigation-bar
@@ -246,6 +260,7 @@
     .vote-icon      { font-size: 1.5rem; color: var(--purple); margin-bottom: 0.2rem;}
     .uppernav       { background-color: var(--purple);}
     .main_column    { background-color: #f6f6ef; }
+    .col-main       { background-color: #f6f6ef; }
 
     .entry-row          { vertical-align: middle; }
       .rank-col         { vertical-align: middle; text-align: right;   font-size: 300%; }
@@ -253,11 +268,13 @@
         form.arrows     { vertical-align: middle; margin: auto;       }
           .updowngrid   { vertical-align: middle; margin: auto; padding: 0px;  }
           .updowngrid a { display: grid; }
-      .titlescore-col   { vertical-align: middle; text-align: left; display: inline-grid;}
+      .titlescore-col   { vertical-align: middle; text-align: left; display: inline-grid; padding-right: 0px;}
         .titlescore     {                         text-align: left; display: inline-grid; margin: auto auto auto 0px;}
       .submitter-name a { color: black; }
 
     .updowngrid.hidden {visibility: hidden; }
+
+    .col-github-blue    { background-color: #4078c0; }
 ")
 
 
@@ -295,6 +312,7 @@
           href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" 
           integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" 
           crossorigin="anonymous">
+    <link rel="stylesheet" href=@|bootstrap-social| type="text/css">
      
     <!-- Favicons (site logo in tab bar) -->
     <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
@@ -354,8 +372,20 @@
   @table[class: "table"
     @(apply tbody (map list->row xss))])
 
+(define (html-github-info #:github-user gu)
+  (define (link   url) @a[href: url]{@url})
+  (define (avatar url) @img[src: url width: "130px" height: "130px"])
+  (def github-user-info
+    (and gu (list (list "name:"    (github-user-real-name  gu))
+                  (list "user:"    (github-user-login      gu))
+                  (list "profile:" (link (github-user-github-url gu)))
+                  (list "blog:"    (link (github-user-blog-url   gu)))
+                  (list "avatar:"  (avatar (github-user-avatar-url gu))))))
+  (list->table (or github-user-info '())))
+  
 
-(define (html-user-page user)
+
+(define (html-user-page user #:github-user [gu #f])
   (current-page "user")
   
   (def u user)
@@ -369,9 +399,13 @@
                         @p{@(list->table 
                              (list (list "user:"    name)
                                    (list "created:" created)
-                                   (list "about:"   about)))}}))
+                                   (list "about:"   about)))}
+                        @(when gu
+                           (list
+                            @h2{Github}
+                            @(html-github-info #:github-user gu)))}))
 
-(define (html-profile-page user)
+(define (html-profile-page user #:github-user [gu #f])
   (current-page "profile")
   
   (def u user)
@@ -380,21 +414,37 @@
   (def about   (if (equal? a "")  "Enter a text to show other users" a))
   (def created (~t (user-created-at u) "E, MMMM d, y"))
 
+  (def user-info
+    (list (list "user:"    name)
+          (list "created:" created)))
+                      
   (html-page
    #:title "Profile - Racket Stories"
-   #:body @main-column{
-            @h2{User Profile}
-            @p{@(list->table 
-                 (list (list "user:"    name)
-                       (list "created:" created)))}
-                       
-            @form[name: "profile_form" action: "/profile-submitted" method: "post" novalidate: ""]{
-              @input[name: "action" value: "submit" type: "hidden"]
-              @form-group[@label[for: "about"]{About}
+   #:body
+   (list @main-column{@h2{User Profile}
+                      @p{@(list->table user-info)}                       
+                      @form[name: "profile_form" action: "/profile-submitted" method: "post" novalidate: ""]{
+                        @input[name: "action" value: "submit" type: "hidden"]
+                        @form-group[@label[for: "about"]{About}
                           @(render-form-input "about" about #f)]
-              @submit-button{Update}}
+                        @submit-button{Update}}                      
+                      @p{}}
 
-            @p{}}))
+         @p{}
+         
+         @div[class: "container"
+           @div[class: "container main_column"
+             @div[class: "row"
+               @div[class: "col-sm-6 col-main"          
+                     @h2{Github}
+                     @(cond
+                        [(not gu)  @span[@p{}
+                                         @(github-button)
+                                         @p{}  
+                                         @p{ Click the Github-button to link your Github 
+                                                   account to your Racket Stories account.}
+                                         @p{Afterwards you can login with Github.}]]
+                        [else            @p{@(html-github-info #:github-user gu)}])]]]])))
 
 
 ;;;
@@ -418,7 +468,7 @@
    @main-column{
      @h1{About}
 
-     @p{This little web-app demonstrates one way to write small web applications 
+     @p{This web site is  demonstrates one way to write small web applications 
         with Racket. The intention is provide a starting point. Something you can tinker 
         with @mdash without inventing everything from scratch.}
 
@@ -520,6 +570,22 @@
                 ]]}
 
      }))
+
+;;;
+;;; Associate Github 
+;;;
+
+(define (html-associate-github-page)
+  (current-page "associate-github")
+  (html-page
+   #:title "Associate Github - Racket Stories"
+   #:body
+   @main-column{
+                @h1{Associate a Github Account}
+                @p{Before you can login directly with a github account,
+                   you need to create a standard account first.
+                   While logged in you can associate a github account,
+                   by signing in with github.}}))
 
 
 ;;;
@@ -702,37 +768,67 @@
   (html-page
    #:title "Login or create new account - Racket Stories"
    #:body
-   @main-column[
-     @nbsp
-     @h1{Login}
-     @form[name: "loginform" action: "/login-submitted" method: "post"]{
-       @form-group{
-         @label[for: "username"]{Username}
-         @form-input[name: "username"   type: "text" value: ""]}
-       @form-group{
-         @label[for: "password"]{Password}
-         @form-input[name: "password" type: "password" value: ""]}
-       @submit-button{Login}}
+   @main-column/no-color[
+    @div[class: "container"
+      @div[class: "row"
+        @div[class: "col-sm-6 col-main"
+          @nbsp
+          @h1{Login}
+          @form[name: "loginform" action: "/login-submitted" method: "post"]{
+            @form-group{
+              @label[for: "username"]{Username}
+              @form-input[name: "username"   type: "text" value: ""]}
+            @form-group{
+              @label[for: "password"]{Password}
+              @form-input[name: "password" type: "password" value: ""]}
+            @submit-button{Login}}
+
+     ;     @form[name: "loginform" action: github-action-url method: "post"]{
+     ;       @submit-button{Login with Github}}
+
      
      ; @h2{Sign-In with Google}
      ; @div[class:"g-signin2" data-onsuccess: "onSignIn"]
 
-     @nbsp @br @br
+          @nbsp @br @br
      
-     @h1{Create Account}
-     @form[name: "createaccountform" action: "/create-account-submitted" method: "post"]{
-       @form-group{
-         @label[for: "username"]{Username}
-         @form-input[name: "username"   type: "text" value: ""]}
-       @form-group{
-         @label[for: "password"]{Password}
-         @form-input[name: "password" type: "password" value: ""]}
-       @form-group{
-         @label[for: "email"]{Email (optional)}
-         @form-input[name: "email" type: "email" value: ""]}
-       @submit-button{Create Account}}
+          @h1{Create Account}
+          @form[name: "createaccountform" action: "/create-account-submitted" method: "post"]{
+            @form-group{
+              @label[for: "username"]{Username}
+              @form-input[name: "username"   type: "text" value: ""]}
+            @form-group{
+              @label[for: "password"]{Password}
+              @form-input[name: "password" type: "password" value: ""]}
+            @form-group{
+              @label[for: "email"]{Email (optional)}
+              @form-input[name: "email" type: "email" value: ""]}
+            @submit-button{Create Account}}
+              @p{@nbsp}]
 
-     @p{@nbsp}]))
+          @div[class: "col-sm-1"]
+
+          @div[class: "col-sm-5"
+            @nbsp
+            @h1[class: "text-center"]{Login with Github}
+            
+            @p[(github-button)]
+              @p{You can login with Github, if you have linked your Racket Stories
+                 account to your Github account.}
+              @p{To link the accounts: 
+                    @ul[@li{login to Racket Stories (with name/password)}
+                        @li{go to your profile page (click your username at the top, right)}
+                        @li{click the "Sign in with Github" button}]}]    
+            ]]]))
+
+(define (github-button)
+  ; (def github-action-url "https://github.com/login/oauth/authorize?client_id=ec150ed77da7c0f796ec")  
+  @a[class: "btn btn-block" href: "/github-login" style: "border: 0;"
+      @button[type: "button" class: "btn col-github-blue"
+        @span[style: "color: #ffffff;"]{
+          @i[class: "fab fa-github fa-2x" 
+             style: "vertical-align:middle;"]{} 
+          @nbsp Sign in with Github}]])
 
           
 
