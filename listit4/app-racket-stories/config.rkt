@@ -44,17 +44,17 @@
 
 (define database-name "racket-stories")
 
-(define database-user
+(define (database-user)
   (match (current-deployment)
     [(or (staging) (production))  (decrypt "3c05c524ae")]
     [(or (development) (testing)) "rs"]))
 
-(define database-password
+(define (database-password)
   (match (current-deployment)
     [(or (staging) (production))  (decrypt "3b1cc134b544d84e19f85b9975f9cf87")]
     [(or (development) (testing)) "rs"]))
 
-(define database-server
+(define (database-server)
   (match (current-deployment)
     [(or (staging) (production))
      (decrypt (~a "2a149f32b84c874b02ad5cd07cfa95c43fdad09b67c55bd07e"
@@ -62,7 +62,7 @@
     [(or (development) (testing)) "localhost"]))
 
 
-(define database-port
+(define (database-port)
   (match (current-deployment)
     [(or (staging) (production))  (string->number (decrypt "7c438277fc"))]
     [(or (development) (testing)) 5432]))

@@ -67,7 +67,7 @@
 (define deployment
   (case (system-type 'os)
     [(macosx windows) (rs:development)]
-    [(linux)          (cond
+    [(unix)           (cond
                         [(regexp-match #rx"web-rs" (gethostname))
                          (if (file-exists? "PRODUCTION")
                              (rs:production)

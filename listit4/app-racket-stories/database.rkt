@@ -28,7 +28,9 @@
 
 
 (define (connect-to-postgresql)
-  (postgresql-connect #:database database-name
-                      #:user     database-user
-                      #:password database-password))
-
+  (postgresql-connect #:database (database-name)
+                      #:password (database-password)
+                      #:user     (database-user)
+                      #:server   (database-server)
+                      #:port     (database-port)
+                      #:ssl      'yes))
