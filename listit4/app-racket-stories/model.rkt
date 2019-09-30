@@ -71,7 +71,7 @@
          json
          (except-in crypto bytes->hex-string)
          "def.rkt" "exn.rkt" "structs.rkt"
-         "authentication.rkt" "database.rkt"
+         "authentication.rkt" "database.rkt" "deployment.rkt"
          "parameters.rkt" "user-names.rkt")
 
 ;;;
@@ -650,7 +650,8 @@
                  (where (= s.token ,token)))))
 
 (define (session-expired? session)
-  (datetime>? (now) (session-expires-at session)))
+  (and session
+       (datetime>? (now) (session-expires-at session))))
 
 (define (session-belongs-to-user? s u)
   (= (session-user-id s) (user-id u)))
@@ -723,7 +724,7 @@ HERE
 
 (create-tables)
 
-(match (current-deployment)
+(match the-deployment
   [(or (development) (testing))
    (populate-database)    ; for testing
    (populate-github-user) ; for testing

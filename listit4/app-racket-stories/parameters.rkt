@@ -24,6 +24,3 @@
 
 (define current-banner-message (make-parameter #f))
 
-;;; STAGE
-
-(define current-deployment (make-parameter (development))) ; default, see "server.rkt"

@@ -22,7 +22,8 @@
 
 (require (prefix-in rs: "app-racket-stories/control.rkt")
          (prefix-in rs: "app-racket-stories/structs.rkt")
-         (prefix-in rs: "app-racket-stories/parameters.rkt"))
+         (prefix-in rs: "app-racket-stories/parameters.rkt")
+         (prefix-in rs: "app-racket-stories/deployment.rkt"))
 
 ;;;
 ;;; Serving Files
@@ -64,29 +65,16 @@
   (start #:launch-browser? #t))
 
 
-(define deployment
-  (case (system-type 'os)
-    [(macosx windows) (rs:development)]
-    [(unix)           (cond
-                        [(regexp-match #rx"web-rs" (gethostname))
-                         (if (file-exists? "PRODUCTION")
-                             (rs:production)
-                             (rs:staging))]
-                        [else
-                         (rs:development)])]
-    [else             (rs:development)]))
-
 (define banner
-  (match deployment
+  (match rs:the-deployment
     [(rs:production)  #f] ; no banner
     [(rs:development) "Development"]
     [(rs:testing)     "Testing"]
     [(rs:staging)     "Staging"]
     [_                "huh?"]))
   
-(parameterize ([rs:current-deployment     deployment]
-               [rs:current-banner-message banner])
-  (start #:launch-browser (rs:development? deployment)))
+(parameterize ([rs:current-banner-message banner])
+  (start #:launch-browser (rs:development? rs:the-deployment)))
 
 ; Note: If you want to use the repl and have the web-server running in the
 ;       background, you can start the server in a new thread:

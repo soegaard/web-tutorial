@@ -31,7 +31,7 @@
 ;; Requirements
 
 (require racket/format racket/match racket/runtime-path
-         "parameters.rkt" "secret.rkt" "structs.rkt")
+         "deployment.rkt" "parameters.rkt" "secret.rkt" "structs.rkt")
 
 
 ;;; Sqlite
@@ -42,20 +42,26 @@
 
 ;;; Postgresql
 
-(define database-name "racket-stories")
+(define database-name
+  (match the-deployment
+    [(development) "racket-stories-development"]
+    [(testing)     "racket-stories-testing"]
+    [(staging)     "racket-stories-staging"]
+    [(production)  "racket-stories"]
+    [else "racket-stories-development"]))
 
 (define (database-user)
-  (match (current-deployment)
+  (match the-deployment
     [(or (staging) (production))  (decrypt "3c05c524ae")]
     [(or (development) (testing)) "rs"]))
 
 (define (database-password)
-  (match (current-deployment)
+  (match the-deployment
     [(or (staging) (production))  (decrypt "3b1cc134b544d84e19f85b9975f9cf87")]
     [(or (development) (testing)) "rs"]))
 
 (define (database-server)
-  (match (current-deployment)
+  (match the-deployment
     [(or (staging) (production))
      (decrypt (~a "2a149f32b84c874b02ad5cd07cfa95c43fdad09b67c55bd07e"
                   "6a3a9c6b971895ecda4cdc7def8871ee78ef46686170ee949d"))]
@@ -63,6 +69,6 @@
 
 
 (define (database-port)
-  (match (current-deployment)
+  (match the-deployment
     [(or (staging) (production))  (string->number (decrypt "7c438277fc"))]
     [(or (development) (testing)) 5432]))

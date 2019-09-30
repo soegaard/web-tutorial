@@ -12,11 +12,12 @@
 ; See "config.rkt" for configuration options.
 
 (require racket/match racket/os db 
-         "config.rkt" "parameters.rkt" "structs.rkt")
+         "config.rkt" "deployment.rkt"
+         "parameters.rkt" "structs.rkt")
 
 
 (define (connect-to-database)
-  (match (or (current-deployment) (development))
+  (match (or the-deployment (development))
     [(or (development) (testing)) (if (member (gethostname) '() #;'("mbp"))
                                       (connect-to-postgresql)
                                       (connect-to-sqlite))]
