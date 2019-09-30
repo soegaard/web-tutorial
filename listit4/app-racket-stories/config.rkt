@@ -70,5 +70,5 @@
 
 (define (database-port)
   (match the-deployment
-    [(or (staging) (production))  (string->number (decrypt "7c438277fc"))]
+    [(or (staging) (production))  (string->number (bytes->string/utf-8 (decrypt "7c438277fc")))]
     [(or (development) (testing)) 5432]))

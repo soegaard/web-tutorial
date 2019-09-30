@@ -52,11 +52,11 @@
 ; While developing it is convenient to launch a browser, when the
 ; server is started - but not so when the server is deployed.
 
-; When no port is mentioned, port 8000 is used.
-
-(define (start #:launch-browser [launch-browser? #f])
+(define (start #:launch-browser [launch-browser? #f]
+               #:port           [port            8000])
   (serve/servlet rs:dispatch
-                 #:launch-browser? launch-browser?
+                 #:port              port
+                 #:launch-browser?   launch-browser?
                  #:servlet-path      ""    ; initial to show in browser
                  #:servlet-regexp    #rx""
                  #:extra-files-paths (list files-root)))
@@ -70,11 +70,16 @@
     [(rs:production)  #f] ; no banner
     [(rs:development) "Development"]
     [(rs:testing)     "Testing"]
-    [(rs:staging)     "Staging"]
-    [_                "huh?"]))
+    [(rs:staging)     "Staging"]))
+
+(define port
+  (match rs:the-deployment
+    [(rs:staging) 9000]
+    [_            8000]))
   
 (parameterize ([rs:current-banner-message banner])
-  (start #:launch-browser (rs:development? rs:the-deployment)))
+  (start #:port port
+         #:launch-browser (rs:development? rs:the-deployment)))
 
 ; Note: If you want to use the repl and have the web-server running in the
 ;       background, you can start the server in a new thread:
