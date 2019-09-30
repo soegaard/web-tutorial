@@ -1,5 +1,6 @@
 #lang racket/base
 (provide (all-defined-out))
+(require "structs.rkt")
 
 ;;;
 ;;; Parameters
@@ -22,3 +23,7 @@
   (current-output-cookies (cons c current-output-cookies)))
 
 (define current-banner-message (make-parameter #f))
+
+;;; STAGE
+
+(define current-deployment (make-parameter (development))) ; default, see "server.rkt"

@@ -71,9 +71,8 @@
          json
          (except-in crypto bytes->hex-string)
          "def.rkt" "exn.rkt" "structs.rkt"
-         "authentication.rkt"
-         "user-names.rkt")
-
+         "authentication.rkt" "database.rkt"
+         "parameters.rkt" "user-names.rkt")
 
 ;;;
 ;;; Utilities
@@ -94,33 +93,11 @@
 ;;; Database Connection
 ;;;
 
-; To avoid any database setup, we use a simple sqlite database.
-; The database is stored in a file "racket-stories-sqlite.db".
-; If the database is empty, we will populate (see populate-database
-; at the end of this file). 
-
-(define-runtime-path sqlite-db "../dbs/racket-stories-sqlite.db")
-
-(define db
-  (sqlite3-connect #:database sqlite-db
-                   #:mode     'create))
-
-; If you have a PostgreSQL database running, then
-; you can use that too.
-
-;; (def foo "racket-stories")
-;; (define db
-;;     (postgresql-connect #:database foo
-;;                         #:user     foo
-;;                         #:password foo))
-
-; Note: Don't put the password in the code.
-;       Store it in an environment variable (set it with setenv in a terminal),
-;       then use  getenv  to retrieve here.
+(define db (connect-to-database))  ; see "database.rkt"
 
 
 ;;;
-;;;
+;;; Utilities
 ;;;
 
 ; lookups : query -> list
@@ -128,7 +105,6 @@
 (define (lookups query)
   (for/list ([v (in-entities db query)])
     v))
-
 
 ;;;
 ;;; MODEL
@@ -743,27 +719,15 @@ HERE
 
 ; (drop-tables)
 
+
+
 (create-tables)
 
-(populate-database)    ; for testing
-(populate-github-user) ; for testing
-
-
-;;;
-;;; Things to try in the repl
-;;;
-
-; (count-entries)
-; (top 3)
-; (PAGE-LIMIT 4)
-; (page 0)
-; (page 1)
-
-
-
-
-
-
-
+(match (current-deployment)
+  [(or (development) (testing))
+   (populate-database)    ; for testing
+   (populate-github-user) ; for testing
+   ]
+  [_ (void)])
 
 

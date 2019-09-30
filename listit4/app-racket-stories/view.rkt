@@ -549,7 +549,7 @@
                      constructs pieces of html looks the same as a call that constructs
                      an actual html construct.}}
                 @p{}
-                @list-item{
+                @list-item-action[href: "https://github.com/soegaard/urlang/tree/master/urlang/html"]{
                   @h5{urlang/html}
                   @p{A wrapper of @tt{scribble/html} that provides a few utilities that
                        makes it easier to work with the element structure of @tt{scribble/html}.

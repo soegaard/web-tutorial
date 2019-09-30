@@ -14,7 +14,9 @@
 ;   The "envy" package can be used to handle environment variables:
 ;      https://lexi-lambda.github.io/envy/envy.html
 
-(provide github-client-secret) ; corresponds to github-client-id
+(provide github-client-secret ; corresponds to github-client-id
+         (rename-out [aes-decrypt decrypt])
+         (rename-out [aes-encrypt encrypt])) 
 
 ;;;
 ;;; Encryption and decryption of secrets

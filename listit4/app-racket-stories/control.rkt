@@ -29,8 +29,7 @@
          web-server/http/request-structs
          net/http-client
          net/uri-codec
-         json crypto
-         ; "config.rkt"
+         json
          "def.rkt" "exn.rkt" "parameters.rkt" "structs.rkt"
          "validation.rkt" "github.rkt"
          "model.rkt" "view.rkt" "secret.rkt")
@@ -148,12 +147,9 @@
   (def token    (get-id-cookie-value req "session-token"))
   (def session  (get-session token))
   (def user     (and session (get-user (session-user-id session))))
-  (displayln (list 'dispatch 'token token 'user (and (user? user)
-                                                     (user-username user))))
   
   (parameterize ([current-login-status   (and session user #t)] ; todo remove
-                 [current-user           (and session user)]
-                 [current-banner-message "Work in progress. Site has not launched yet."])
+                 [current-user           (and session user)])
     (dispatch-on-url req)))
 
 ;;; URL Dispatching
@@ -227,22 +223,13 @@
    [("profile-submitted")        #:method "post"  do-profile-submitted]
 
    [("github-login")                              do-github-login]    ; initiate login (by user)
-   [("github-callback")       #:method "post"     do-github-callback] ; callback       (by github)
-   [("github-callback")                           do-github-callback]
+   [("github-callback")          #:method "post"  do-github-callback] ; callback       (by github)
+   [("github-callback")                           do-github-callback]))
 
    
    ; No else clause means the next dispatch ought to serve other files
    ; -- that is the web-server will then serve files from extra-files-root.
    ; This means we can't add a catch-all here to see which routes fell through...
-
-   ; [("favicons" (string-arg))                     (λ(_ __) (next-dispatcher))]
-   #;[else
-    (λ (req)
-      (displayln "!!!")
-      (displayln (url->string (request-uri req)))
-      (displayln (request-method req))
-      (do-home req 0))]
-   ))
 
 ;;;
 ;;; PAGES
@@ -348,18 +335,17 @@
        ; twice due to reloads in the browser.
 
        [(? user? u)
-        (displayln (list 'do-submit-login "login ok"))
         (def s (register-session u)) ; stores session i db
         (redirect-to
          "/" temporarily
          #:headers (map cookie->header
                         (list (make-session-cookie (session-token s)))))]
        ; If the login failed, the user must try again.
-       [(authentication-error msg)                  
-        (displayln (list 'do-submit-login msg))
+       [(authentication-error msg)                          
         (redirect-to "/login" temporarily)])]
-    [else      (displayln (list 'do-submit-login 'un un 'p p))
-               (redirect-to "/login" temporarily)]))
+    [else
+     (redirect-to "/login" temporarily)]))
+
 ; 0. User goes to:
 ;      https://racket-stories/gtihub-login
 ; 1. Which redirects to:
@@ -381,12 +367,9 @@
   (def github-action-url
     (~a "https://github.com/login/oauth/authorize?client_id=ec150ed77da7c0f796ec"
         "&state=" our-state))
-  (displayln "-- our state --")
-  (displayln our-state)
   (redirect-to github-action-url))
 
 
-; todo: send and check state to prevent cross-site attack
 (define (do-github-callback req)
   ; We get here after a succesful login on github.
   ; We get a `code`, which we will use to get an access token.
@@ -410,9 +393,6 @@
            (cons 'redirect_uri  redirect-uri)
            (cons 'state         (str state)))))
 
-  (displayln "-- received state --")
-  (displayln state)
-
   (cond
     [code (defv (status headers in)
             (http-sendrecv "github.com"
@@ -424,14 +404,9 @@
                            #:headers out-headers	 
                            #:data data	 
                            #:content-decode '()))
-          (displayln "-- token received -- headers --")
-          (displayln (list 'headers headers 'status status 'in in))
-          (displayln "-- token received -- headers --")
           (define result (port->string in))
-          (write result) (newline)
-
+          
           (def state (get-binding #"state"))
-          (displayln (list 'state state))
           (cond
             ; check that we get our state back again
             [(valid-github-state? (str state))
@@ -448,16 +423,8 @@
                                  #:headers (list (~a "Authorization: token " token))
                                  ; #:data data	 
                                  #:content-decode '()))
-                (displayln "-- user -- headers --")
-                (displayln (list 'headers headers 'status status 'in in))
-                (displayln "-- user --")
                 (define result (port->string in))
-                (write result)
-                (newline)
                 (def ht (string->jsexpr result))
-                (displayln "-- user ht--")
-                (write ht) (newline)
-                
                 (def u (current-user)) ; might be #f
                 (def s (login-github-user u ht))
                 (cond
@@ -469,20 +436,10 @@
                   [else (redirect-to "/associate-github")])])]
             [else
              ; the state and our-state were different (man in the middle attack?)
-             (displayln "-- state and our-state are different --")
              (redirect-to "https://racket-stories.com/" temporarily)])]
     [else
-     (displayln "-- no code? --")
      (redirect-to "https://racket-stories.com/" temporarily)]))
 
-
-(define (do-github-access-token-received req)
-  (displayln 'do-github-access-token-received)
-  ; We get here after sending the `code` to github.
-  (def access-token (get-binding #"access_token"))
-  (def token-type   (get-binding #"token_type"))
-  (response/output
-   (λ (out) (displayln (list 'token access-token 'token-type token-type)))))
 
 
 (define (do-profile-submitted req)
@@ -501,7 +458,7 @@
   (with-handlers ([exn:fail:user:bad?
                    (λ (e)
                      (def msg (exn-message e))
-                     (displayln msg) ; todo: show user
+                     ; (displayln msg) ; todo: show user
                      (redirect-to "/login" temporarily))])
     (def u (create-user un p e))
     (def s (register-session u)) ; stores session i db
