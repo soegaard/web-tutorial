@@ -31,7 +31,7 @@
          net/uri-codec
          json
          "def.rkt" "exn.rkt" "parameters.rkt" "structs.rkt"
-         "validation.rkt" "github.rkt"
+         "validation.rkt" 
          "model.rkt" "view.rkt" "secret.rkt")
 
 ;;;
