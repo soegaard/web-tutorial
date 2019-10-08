@@ -3,7 +3,7 @@
 The folder `listit` contains a basic MVC-based implementation
 of a "submit a link and vote" site.
 
-The folder `listit2` expands on the iniital example and add users.
+The folder `listit2` expands on the inital example and add users.
 Adding users is conceptually simple, but in practise there are
 many details to consider. 
 
