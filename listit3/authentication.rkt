@@ -72,7 +72,7 @@
 ; The parameters can be tweaked - see the docs for crypto.
 
 (define pbkedf2-params (list (list 'iterations 65536) 
-                             (list 'key-size   64)))
+                             #;(list 'key-size   64)))
 
 (define argon2id-params  '((p 2)       ; number of cores
                            (t 256)     ; time cost
