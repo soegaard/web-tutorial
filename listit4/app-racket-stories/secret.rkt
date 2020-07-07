@@ -59,6 +59,10 @@
 ; either in the environment variable "rskey" or in a file "rskey"
 ; in the user home (i.e. outside this repo).
 
+; If you get, the error "No key in either environment or home (Looking inside home). Using default." 
+; you might need to create a file the file ".racket-stories/rskey" in your HOME directory  and save
+; a key into it. To generate the key, run this file, and then type (new-key) into your REPL.
+
 (define key ; 16, 24 or 32 bytes
   (cond [(getenv "RSKEY") => hex-string->bytes]
         [(getenv "HOME")
