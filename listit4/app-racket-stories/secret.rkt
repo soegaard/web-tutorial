@@ -72,7 +72,7 @@
                 [(file-exists? p) (with-input-from-file p
                                      (λ () (hex-string->bytes (read-line))))]
                 [else
-                 (displayln "No key in either environment or home. Using default."
+                 (displayln "No key in either environment or home (Looking inside home). Using default."
                             (current-error-port))
                  #"A secret key!!!!"]))]
         [else
