@@ -23,6 +23,7 @@
                                       (connect-to-sqlite))]
     [(or (staging) (production))  (connect-to-postgresql)]))
 
+;Replace <sqlite-db> with <'memory> or <'temporary> in the database field to quickstart
 (define (connect-to-sqlite)
   (sqlite3-connect    #:database sqlite-db
                       #:mode     'create))
